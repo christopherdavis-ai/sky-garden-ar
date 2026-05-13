@@ -1,4 +1,3 @@
-codex/build-vite-+-three.js-3d-visualization-project-sciq8x
 export const MAPTILER_API_KEY = '05BhA9dr9c1AxIlmiuOY';
 
 
