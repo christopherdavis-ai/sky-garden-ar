@@ -1,7 +1,5 @@
 export const MAPTILER_API_KEY = '05BhA9dr9c1AxIlmiuOY';
 
-
-main
 export const SKY_GARDEN_ORIGIN = {
   lat: 51.511398,
   lng: -0.083507,
