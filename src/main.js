@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-odex/build-vite-+-three.js-3d-visualization-project-sciq8x
 import * as maptilersdk from '@maptiler/sdk';
 import clients from './data/clients.json';
 import banks from './data/banks.json';
