@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>Sky Garden AR Mode</title>
+    <link rel="stylesheet" href="/src/styles/ar.css" />
+  </head>
+  <body>
+    <video id="cameraFeed" autoplay muted playsinline></video>
+    <canvas id="arScene"></canvas>
+    <div id="calibration" class="panel active">
+      <h1>Calibration</h1>
+      <p>Point your phone towards <strong>The Shard</strong>.</p>
+      <p>Target bearing: <strong>195°</strong></p>
+      <button id="startAr">Start Overlay</button>
+    </div>
+    <div class="hud">
+      <span id="compass">Compass: --°</span>
+      <a href="/">Back to Desktop</a>
+    </div>
+    <script type="module" src="/src/ar-main.js"></script>
+  </body>
+</html>
