@@ -1,7 +1,6 @@
 {
   "name": "sky-garden-ar",
   "version": "1.0.0",
-  "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,13 +8,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-codex/build-vite-+-three.js-3d-visualization-project-sciq8x
-    "@maptiler/sdk": "^3.1.0",
-
- main
-    "three": "^0.181.1"
+    "three": "^0.170.0"
   },
   "devDependencies": {
-    "vite": "^7.1.0"
+    "vite": "^6.0.0"
   }
 }
