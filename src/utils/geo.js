@@ -6,7 +6,7 @@ export function latLngToLocalXYZ(lat, lng, origin) {
   const meanLat = (((lat + origin.lat) * 0.5) * Math.PI) / 180;
 
   const x = dLng * EARTH_RADIUS * Math.cos(meanLat);
-  const z = -dLat * EARTH_RADIUS;
+  const z = dLat * EARTH_RADIUS;
   const y = 0;
 
   return { x, y, z };

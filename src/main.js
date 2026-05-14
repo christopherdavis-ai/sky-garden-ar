@@ -40,6 +40,25 @@ const makeBadge = (txt, fill, emoji = '') => {
   return new THREE.CanvasTexture(c);
 };
 
+
+const textureLoader = new THREE.TextureLoader();
+function addLogoSprite(group, client, beamHeight) {
+  if (!client.logo) return;
+  textureLoader.load(
+    client.logo,
+    (texture) => {
+      const logoSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false }));
+      const scale = (client.scale ?? 1) * 12;
+      logoSprite.scale.set(scale, scale, 1);
+      logoSprite.position.y = beamHeight + 26;
+      group.add(logoSprite);
+    },
+    undefined,
+    () => {
+      console.warn(`Logo not found: ${client.logo}, using initials`);
+    }
+  );
+}
 function createFlow(points, colorA, colorB, scene) {
   const curve = new THREE.CatmullRomCurve3(points);
   const count = 100;
@@ -84,7 +103,7 @@ const customLayer = {
     for (const client of clients) {
       const pos = toLocalMeters(client.lng, client.lat);
       const isTL = client.name === 'TrueLayer';
-      const h = isTL ? 300 : state.beamHeight;
+      const h = isTL ? 300 : (client.height ?? state.beamHeight);
       const group = new THREE.Group(); group.position.copy(pos);
       const beam = new THREE.Mesh(new THREE.CylinderGeometry(state.beamRadius, state.beamRadius, h, 20, 1, true), new THREE.MeshBasicMaterial({ color: client.beamColor, transparent: true, opacity: 0.32, blending: THREE.AdditiveBlending, depthWrite: false }));
       beam.position.y = h / 2;
@@ -97,6 +116,7 @@ const customLayer = {
       const particles = new THREE.Group();
       for (let i = 0; i < VISUAL_DEFAULTS.particleCount; i++) { const p = new THREE.Mesh(new THREE.SphereGeometry(0.45, 6, 6), new THREE.MeshBasicMaterial({ color: client.beamColor })); const a = (i / VISUAL_DEFAULTS.particleCount) * Math.PI * 2; p.position.set(Math.cos(a) * 7, 2 + (i % 6), Math.sin(a) * 7); particles.add(p); }
       group.add(beam, glow, ring, sprite, particles);
+      addLogoSprite(group, client, h);
       this.scene.add(group);
       beamObjects.push({ beam, glow, sprite, particles, baseHeight: h, trueLayer: isTL });
     }
