@@ -96,18 +96,21 @@ const customLayer = {
       const badgeTexture = makeBadge(client.initials, client.beamColor);
       const spriteMat = new THREE.SpriteMaterial({ map: badgeTexture, transparent: true, depthWrite: false });
       const sprite = new THREE.Sprite(spriteMat);
-      sprite.scale.set(12, 9, 1); sprite.position.y = h + 10;
+      sprite.scale.set(12, 9, 1);
+      sprite.position.y = h + 10;
 
       if (client.logo) {
         const texLoader = new THREE.TextureLoader();
         texLoader.load(
           client.logo,
           (logoTex) => {
+            logoTex.colorSpace = THREE.SRGBColorSpace;
             spriteMat.map = logoTex;
             spriteMat.needsUpdate = true;
+            sprite.scale.set(14, 14, 1);
           },
           undefined,
-          () => { console.warn('Logo not found, using initials:', client.logo); }
+          () => { /* logo not found, keep initials badge */ }
         );
       }
       const particles = new THREE.Group();
@@ -128,18 +131,21 @@ const customLayer = {
       const bankBadgeTexture = makeBadge(bank.initials, '#3f7dff', '🏦');
       const bankSpriteMat = new THREE.SpriteMaterial({ map: bankBadgeTexture, transparent: true, depthWrite: false });
       const badge = new THREE.Sprite(bankSpriteMat);
-      badge.scale.set(14, 10, 1); badge.position.y = h + 10;
+      badge.scale.set(14, 10, 1);
+      badge.position.y = h + 10;
 
       if (bank.logo) {
         const texLoader = new THREE.TextureLoader();
         texLoader.load(
           bank.logo,
           (logoTex) => {
+            logoTex.colorSpace = THREE.SRGBColorSpace;
             bankSpriteMat.map = logoTex;
             bankSpriteMat.needsUpdate = true;
+            badge.scale.set(14, 14, 1);
           },
           undefined,
-          () => { console.warn('Logo not found, using initials:', bank.logo); }
+          () => { /* logo not found, keep initials badge */ }
         );
       }
       group.add(beam, sq, badge); this.scene.add(group);
