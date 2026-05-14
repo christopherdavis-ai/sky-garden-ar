@@ -122,11 +122,20 @@ const customLayer = {
       );
       ring.rotation.x = -Math.PI / 2;
 
-      const sprite = new THREE.Sprite(
-        new THREE.SpriteMaterial({ map: makeBadge(client.initials, client.beamColor), transparent: true, depthWrite: false })
-      );
-      sprite.scale.set(12, 9, 1);
-      sprite.position.y = h + 10;
+     const badgeTexture = makeBadge(client.initials, client.beamColor);
+const spriteMat = new THREE.SpriteMaterial({map: badgeTexture, transparent: true, depthWrite: false});
+const sprite = new THREE.Sprite(spriteMat);
+sprite.scale.set(12, 9, 1);
+sprite.position.y = h + 10;
+if (client.logo) {
+  const texLoader = new THREE.TextureLoader();
+  texLoader.load(client.logo, (logoTex) => {
+    logoTex.colorSpace = THREE.SRGBColorSpace;
+    spriteMat.map = logoTex;
+    spriteMat.needsUpdate = true;
+    sprite.scale.set(14, 14, 1);
+  }, undefined, () => {});
+}
 
       const particles = new THREE.Group();
       for (let i = 0; i < VISUAL_DEFAULTS.particleCount; i++) {
