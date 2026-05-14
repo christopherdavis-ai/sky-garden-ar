@@ -41,24 +41,6 @@ const makeBadge = (txt, fill, emoji = '') => {
 };
 
 
-const textureLoader = new THREE.TextureLoader();
-function addLogoSprite(group, client, beamHeight) {
-  if (!client.logo) return;
-  textureLoader.load(
-    client.logo,
-    (texture) => {
-      const logoSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false }));
-      const scale = (client.scale ?? 1) * 12;
-      logoSprite.scale.set(scale, scale, 1);
-      logoSprite.position.y = beamHeight + 26;
-      group.add(logoSprite);
-    },
-    undefined,
-    () => {
-      console.warn(`Logo not found: ${client.logo}, using initials`);
-    }
-  );
-}
 function createFlow(points, colorA, colorB, scene) {
   const curve = new THREE.CatmullRomCurve3(points);
   const count = 100;
@@ -111,12 +93,26 @@ const customLayer = {
       glow.position.y = h / 2;
       const ring = new THREE.Mesh(new THREE.RingGeometry(4, isTL ? 8.5 : 6.5, 32), new THREE.MeshBasicMaterial({ color: client.beamColor, side: THREE.DoubleSide }));
       ring.rotation.x = -Math.PI / 2;
-      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeBadge(client.initials, client.beamColor), transparent: true, depthWrite: false }));
+      const badgeTexture = makeBadge(client.initials, client.beamColor);
+      const spriteMat = new THREE.SpriteMaterial({ map: badgeTexture, transparent: true, depthWrite: false });
+      const sprite = new THREE.Sprite(spriteMat);
       sprite.scale.set(12, 9, 1); sprite.position.y = h + 10;
+
+      if (client.logo) {
+        const texLoader = new THREE.TextureLoader();
+        texLoader.load(
+          client.logo,
+          (logoTex) => {
+            spriteMat.map = logoTex;
+            spriteMat.needsUpdate = true;
+          },
+          undefined,
+          () => { console.warn('Logo not found, using initials:', client.logo); }
+        );
+      }
       const particles = new THREE.Group();
       for (let i = 0; i < VISUAL_DEFAULTS.particleCount; i++) { const p = new THREE.Mesh(new THREE.SphereGeometry(0.45, 6, 6), new THREE.MeshBasicMaterial({ color: client.beamColor })); const a = (i / VISUAL_DEFAULTS.particleCount) * Math.PI * 2; p.position.set(Math.cos(a) * 7, 2 + (i % 6), Math.sin(a) * 7); particles.add(p); }
       group.add(beam, glow, ring, sprite, particles);
-      addLogoSprite(group, client, h);
       this.scene.add(group);
       beamObjects.push({ beam, glow, sprite, particles, baseHeight: h, trueLayer: isTL });
     }
@@ -129,8 +125,23 @@ const customLayer = {
       beam.position.y = h / 2;
       const sq = new THREE.Mesh(new THREE.PlaneGeometry(11, 11), new THREE.MeshBasicMaterial({ color: '#90caf9', side: THREE.DoubleSide, transparent: true, opacity: 0.9 }));
       sq.rotation.x = -Math.PI / 2;
-      const badge = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeBadge(bank.initials, '#3f7dff', '🏦'), transparent: true, depthWrite: false }));
+      const bankBadgeTexture = makeBadge(bank.initials, '#3f7dff', '🏦');
+      const bankSpriteMat = new THREE.SpriteMaterial({ map: bankBadgeTexture, transparent: true, depthWrite: false });
+      const badge = new THREE.Sprite(bankSpriteMat);
       badge.scale.set(14, 10, 1); badge.position.y = h + 10;
+
+      if (bank.logo) {
+        const texLoader = new THREE.TextureLoader();
+        texLoader.load(
+          bank.logo,
+          (logoTex) => {
+            bankSpriteMat.map = logoTex;
+            bankSpriteMat.needsUpdate = true;
+          },
+          undefined,
+          () => { console.warn('Logo not found, using initials:', bank.logo); }
+        );
+      }
       group.add(beam, sq, badge); this.scene.add(group);
 
       const mid = bankPos.clone().lerp(tlPos, 0.5).add(new THREE.Vector3(0, 95, 0));
