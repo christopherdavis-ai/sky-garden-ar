@@ -1,0 +1,8 @@
+html, body { margin: 0; height: 100%; overflow: hidden; font-family: Inter, system-ui, sans-serif; background: #000; }
+#cameraFeed, #arScene { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+#arScene { pointer-events: none; }
+.panel { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(92vw, 360px); background: #0a1020e8; color: #e6efff; border: 1px solid #355072; border-radius: 12px; padding: 1rem; display: none; }
+.panel.active { display: block; }
+button { width: 100%; border: 0; border-radius: 8px; background: #42d392; color: #02120b; font-weight: 700; padding: .7rem; }
+.hud { position: fixed; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; padding: .8rem; color: #d9eeff; text-shadow: 0 2px 4px #000; }
+.hud a { color: #9ae8ff; }

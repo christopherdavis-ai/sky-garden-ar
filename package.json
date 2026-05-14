@@ -1,0 +1,18 @@
+{
+  "name": "sky-garden-ar",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@maptiler/sdk": "^3.1.0",
+    "three": "^0.181.1"
+  },
+  "devDependencies": {
+    "vite": "^7.1.0"
+  }
+}
