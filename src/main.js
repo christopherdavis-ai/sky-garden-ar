@@ -5,7 +5,7 @@ import banks from './data/banks.json';
 import { MAPTILER_API_KEY, SKY_GARDEN_ORIGIN, VISUAL_DEFAULTS } from './config.js';
 
 maptilersdk.config.apiKey = MAPTILER_API_KEY;
-const map = new maptilersdk.Map({
+const mapRef = new maptilersdk.Map({
   container: 'map',
   style: maptilersdk.MapStyle.STREETS.DARK,
   center: [SKY_GARDEN_ORIGIN.lng, SKY_GARDEN_ORIGIN.lat],
@@ -67,7 +67,9 @@ const customLayer = {
   onAdd(_, gl) {
     this.camera = new THREE.Camera();
     this.scene = new THREE.Scene();
-    this.renderer = new THREE.WebGLRenderer({ canvas: map.getCanvas(), context: gl, antialias: true });
+    this.renderer = new THREE.WebGLRenderer({ canvas: mapRef.getCanvas(), context: gl, antialias: true });
+    this.map = mapRef;
+    console.log('Custom layer added');
     this.renderer.autoClear = false;
     this.scene.add(new THREE.AmbientLight(0xb8c8ff, 0.75));
 
@@ -121,10 +123,11 @@ const customLayer = {
       createFlow([tlPos.clone().add(new THREE.Vector3(0, 220, 0)), mid, cPos.clone().add(new THREE.Vector3(0, 60, 0))], '#8b5cf6', '#2dd4bf', this.scene);
     });
   },
-  render(gl, matrix) {
+  render(gl, args) {
+    console.log('Rendering frame');
     const t = performance.now() * 0.001;
     const scale = centerMerc.meterInMercatorCoordinateUnits();
-    const m = new THREE.Matrix4().fromArray(matrix);
+    const m = new THREE.Matrix4().fromArray(args.defaultProjectionData.mainMatrix);
     const l = new THREE.Matrix4().makeTranslation(centerMerc.x, centerMerc.y, centerMerc.z).scale(new THREE.Vector3(scale, -scale, scale)).multiply(new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(1, 0, 0), Math.PI / 2));
     this.camera.projectionMatrix = m.multiply(l);
     this.radar.scale.setScalar(1 + Math.sin(t * 3) * 0.25 + 0.3);
@@ -148,12 +151,14 @@ const customLayer = {
       f.points.geometry.attributes.position.needsUpdate = true;
     });
 
-    this.renderer.resetState(); this.renderer.render(this.scene, this.camera); map.triggerRepaint();
+    this.renderer.resetState();
+    this.renderer.render(this.scene, this.camera);
+    this.map.triggerRepaint();
   }
 };
 
-map.on('style.load', () => map.addLayer(customLayer));
-document.getElementById('dayToggle').addEventListener('change', (e) => { state.day = e.target.checked; map.setStyle(state.day ? maptilersdk.MapStyle.STREETS.PASTEL : maptilersdk.MapStyle.STREETS.DARK); });
+mapRef.on('style.load', () => mapRef.addLayer(customLayer));
+document.getElementById('dayToggle').addEventListener('change', (e) => { state.day = e.target.checked; mapRef.setStyle(state.day ? maptilersdk.MapStyle.STREETS.PASTEL : maptilersdk.MapStyle.STREETS.DARK); });
 document.getElementById('flowToggle').addEventListener('change', (e) => { state.flows = e.target.checked; });
 function applyBeamSettings() {
   state.beamHeight = Number(document.getElementById('beamHeight').value);
