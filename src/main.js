@@ -28,7 +28,7 @@ const centerMerc = maptilersdk.MercatorCoordinate.fromLngLat([SKY_GARDEN_ORIGIN.
 const toLocalMeters = (lng, lat) => {
   const mc = maptilersdk.MercatorCoordinate.fromLngLat([lng, lat], 0);
   const m = centerMerc.meterInMercatorCoordinateUnits();
-  return new THREE.Vector3((mc.x - centerMerc.x) / m, 0, -((mc.y - centerMerc.y) / m));
+  return new THREE.Vector3((mc.x - centerMerc.x) / m, 0, (mc.y - centerMerc.y) / m);
 };
 
 const makeBadge = (txt, fill, emoji = '') => {
