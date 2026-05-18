@@ -1,24 +1,82 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-    <title>Sky Garden AR Mode</title>
-    <link rel="stylesheet" href="/src/styles/ar.css" />
-  </head>
-  <body>
-    <video id="cameraFeed" autoplay muted playsinline></video>
-    <canvas id="arScene"></canvas>
-    <div id="calibration" class="panel active">
-      <h1>Calibration</h1>
-      <p>Point your phone towards <strong>The Shard</strong>.</p>
-      <p>Target bearing: <strong>195°</strong></p>
-      <button id="startAr">Start Overlay</button>
-    </div>
-    <div class="hud">
-      <span id="compass">Compass: --°</span>
-      <a href="/">Back to Desktop</a>
-    </div>
-    <script type="module" src="/src/ar-main.js"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Sky Garden AR Experience — TrueLayer</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { overflow: hidden; background: #000; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; }
+    #camera-feed { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
+    #ar-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
+    #calibration-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 10;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.85); color: white; text-align: center; padding: 2rem;
+    }
+    #calibration-overlay h1 { font-size: 1.8rem; margin-bottom: 0.5rem; }
+    #calibration-overlay p { font-size: 1rem; color: #aaa; margin-bottom: 2rem; max-width: 300px; }
+    #crosshair {
+      width: 80px; height: 80px; border: 3px solid #7C3AED; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2rem; color: #7C3AED; margin-bottom: 2rem;
+    }
+    #crosshair::after { content: '+'; }
+    #calibrate-btn {
+      background: #7C3AED; color: white; border: none; padding: 1rem 3rem;
+      border-radius: 50px; font-size: 1.1rem; font-weight: 600; cursor: pointer;
+      transition: transform 0.1s;
+    }
+    #calibrate-btn:active { transform: scale(0.95); }
+    #loading-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 20;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: #0a0a1a; color: white; text-align: center;
+    }
+    #loading-overlay h1 { font-size: 2rem; color: #7C3AED; margin-bottom: 1rem; }
+    #loading-overlay p { color: #888; font-size: 0.95rem; }
+    .hidden { display: none !important; }
+    #hud {
+      position: fixed; top: 1rem; left: 1rem; z-index: 5; color: white;
+      font-size: 0.75rem; background: rgba(0,0,0,0.5); padding: 0.5rem 0.75rem;
+      border-radius: 8px; pointer-events: none;
+    }
+    #ios-permission {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 30;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.95); color: white; text-align: center; padding: 2rem;
+    }
+    #ios-permission h1 { font-size: 1.5rem; margin-bottom: 1rem; }
+    #ios-permission p { color: #aaa; margin-bottom: 2rem; max-width: 300px; }
+    #ios-permission button {
+      background: #7C3AED; color: white; border: none; padding: 1rem 3rem;
+      border-radius: 50px; font-size: 1.1rem; font-weight: 600; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="loading-overlay">
+    <h1>TrueLayer</h1>
+    <p>Sky Garden AR Experience</p>
+    <p style="margin-top: 1rem; color: #555;">Loading camera...</p>
+  </div>
+  <div id="ios-permission" class="hidden">
+    <h1>Enable Motion Sensors</h1>
+    <p>This AR experience needs access to your device's compass and motion sensors.</p>
+    <button id="ios-permission-btn">Allow Access</button>
+  </div>
+  <div id="calibration-overlay" class="hidden">
+    <h1>Calibrate AR</h1>
+    <p>Point your phone at The Shard and tap the button below</p>
+    <div id="crosshair"></div>
+    <button id="calibrate-btn">I'm pointing at The Shard</button>
+  </div>
+  <video id="camera-feed" autoplay playsinline></video>
+  <canvas id="ar-canvas"></canvas>
+  <div id="hud" class="hidden">
+    <div id="hud-heading">Heading: --°</div>
+    <div id="hud-beams">Beams visible: --</div>
+  </div>
+  <script type="module" src="/src/ar-main.js"></script>
+</body>
 </html>
