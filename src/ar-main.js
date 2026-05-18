@@ -2,11 +2,6 @@ import * as THREE from 'three';
 import clients from './data/clients.json';
 import banks from './data/banks.json';
 
-// ============================================
-// Sky Garden AR Experience â€” TrueLayer v3
-// Organic flocking particles + test mode
-// ============================================
-
 const SKY_GARDEN = { lat: 51.511398, lng: -0.083507, alt: 155 };
 const SHARD_BEARING = 195;
 const SMOOTH_FACTOR = 0.08;
@@ -14,6 +9,7 @@ const SMOOTH_FACTOR = 0.08;
 let compassOffset = 0;
 let calibrated = false;
 let testMode = false;
+let lockedAlpha = null;
 let currentHeading = 0;
 let smoothedAlpha = 0;
 let smoothedBeta = 90;
@@ -23,7 +19,6 @@ let deviceAlpha = 0;
 let deviceBeta = 90;
 let deviceGamma = 0;
 
-// --- Geo Utilities ---
 function getBearing(lat1, lng1, lat2, lng2) {
   const toRad = Math.PI / 180;
   const dLng = (lng2 - lng1) * toRad;
@@ -48,7 +43,7 @@ function scaleDistance(meters) {
 }
 
 function getHemisphereFade(beamBearing, cameraHeading) {
-  if (testMode) return 1.0; // Test mode: everything visible
+  if (testMode) return 1.0;
   let diff = Math.abs(beamBearing - cameraHeading);
   if (diff > 180) diff = 360 - diff;
   if (diff <= 80) return 1.0;
@@ -67,8 +62,44 @@ function lerp(current, target, factor) {
   return current + (target - current) * factor;
 }
 
-// --- Badge texture ---
-function makeBadge(txt, fill, emoji = '') {
+function createGlowTexture() {
+  const c = document.createElement('canvas');
+  c.width = 64; c.height = 64;
+  const ctx = c.getContext('2d');
+  const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.3, 'rgba(255,255,255,0.6)');
+  grad.addColorStop(0.7, 'rgba(255,255,255,0.15)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 64, 64);
+  const tex = new THREE.CanvasTexture(c);
+  tex.needsUpdate = true;
+  return tex;
+}
+
+function createGlowSprite(color, size) {
+  const c = document.createElement('canvas');
+  c.width = 32; c.height = 32;
+  const ctx = c.getContext('2d');
+  const grad = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+  const col = new THREE.Color(color);
+  const r = Math.round(col.r * 255);
+  const g = Math.round(col.g * 255);
+  const b = Math.round(col.b * 255);
+  grad.addColorStop(0, `rgba(${r},${g},${b},1)`);
+  grad.addColorStop(0.4, `rgba(${r},${g},${b},0.4)`);
+  grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 32, 32);
+  const tex = new THREE.CanvasTexture(c);
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(size, size, 1);
+  return sprite;
+}
+
+function makeBadge(txt, fill, prefix = '') {
   const c = document.createElement('canvas');
   c.width = 256; c.height = 192;
   const ctx = c.getContext('2d');
@@ -87,21 +118,18 @@ function makeBadge(txt, fill, emoji = '') {
   ctx.font = '700 36px -apple-system, BlinkMacSystemFont, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(`${emoji}${txt}`, 128, 96);
+  ctx.fillText(`${prefix}${txt}`, 128, 96);
   return new THREE.CanvasTexture(c);
 }
 
-// --- Organic Flocking Payment Flow ---
-function createARFlow(pointA, pointB, colorA, colorB, scene) {
+function createARFlow(pointA, pointB, colorA, colorB, scene, glowTex) {
   const mid = pointA.clone().lerp(pointB, 0.5).add(new THREE.Vector3(0, 18, 0));
   const curve = new THREE.CatmullRomCurve3([pointA, mid, pointB]);
-  const count = 180;
-
+  const count = 100;
   const pos = new Float32Array(count * 3);
   const col = new Float32Array(count * 3);
   const c1 = new THREE.Color(colorA);
   const c2 = new THREE.Color(colorB);
-
   const seeds = [];
   for (let i = 0; i < count; i++) {
     const p = curve.getPoint(i / count);
@@ -110,45 +138,28 @@ function createARFlow(pointA, pointB, colorA, colorB, scene) {
     const c = c1.clone().lerp(c2, blend);
     col.set([c.r, c.g, c.b], i * 3);
     seeds.push({
-      sx: Math.random() * 100,
-      sy: Math.random() * 100,
-      sz: Math.random() * 100,
-      freqX: 0.3 + Math.random() * 0.7,
-      freqY: 0.2 + Math.random() * 0.5,
-      freqZ: 0.3 + Math.random() * 0.7,
-      spread: 1.5 + Math.random() * 4,
+      sx: Math.random() * 100, sy: Math.random() * 100, sz: Math.random() * 100,
+      freqX: 0.3 + Math.random() * 0.7, freqY: 0.2 + Math.random() * 0.5,
+      freqZ: 0.3 + Math.random() * 0.7, spread: 1 + Math.random() * 2.5,
       speedMult: 0.7 + Math.random() * 0.6
     });
   }
-
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-
   const layers = [];
-  const layerConfigs = [
-    { size: 1.0, opacity: 0.35 },
-    { size: 2.2, opacity: 0.5 },
-    { size: 4.0, opacity: 0.25 }
-  ];
-
-  layerConfigs.forEach((cfg) => {
-    const layerG = new THREE.BufferGeometry();
-    layerG.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3));
-    layerG.setAttribute('color', new THREE.BufferAttribute(new Float32Array(col), 3));
+  [{ size: 3.0, opacity: 0.15 }, { size: 1.2, opacity: 0.4 }].forEach((cfg) => {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3));
+    g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(col), 3));
     const m = new THREE.PointsMaterial({
-      size: cfg.size, vertexColors: true, transparent: true, opacity: cfg.opacity,
-      blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true
+      size: cfg.size, map: glowTex, vertexColors: true, transparent: true,
+      opacity: cfg.opacity, blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true
     });
-    const pts = new THREE.Points(layerG, m);
+    const pts = new THREE.Points(g, m);
     scene.add(pts);
     layers.push(pts);
   });
-
   return { curve, layers, count, seeds, speed: 0.025 + Math.random() * 0.02, offset: Math.random() };
 }
 
-// --- Camera Setup ---
 async function startCamera() {
   const video = document.getElementById('camera-feed');
   try {
@@ -160,14 +171,12 @@ async function startCamera() {
     await video.play();
     return true;
   } catch (err) {
-    console.error('Camera error:', err);
     document.getElementById('loading-overlay').querySelector('p:last-child').textContent =
       'Camera access denied. Please allow camera access and reload.';
     return false;
   }
 }
 
-// --- Device Orientation ---
 function handleOrientation(e) {
   deviceAlpha = e.alpha || 0;
   deviceBeta = e.beta || 90;
@@ -202,7 +211,6 @@ async function startOrientation() {
   }
 }
 
-// --- Calibration ---
 function setupCalibration() {
   const overlay = document.getElementById('calibration-overlay');
   overlay.classList.remove('hidden');
@@ -216,7 +224,6 @@ function setupCalibration() {
   });
 }
 
-// --- Three.js AR Scene ---
 function createARScene() {
   const canvas = document.getElementById('ar-canvas');
   const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
@@ -228,34 +235,37 @@ function createARScene() {
   const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
   scene.add(new THREE.AmbientLight(0xffffff, 0.5));
 
+  const glowTex = createGlowTexture();
   const beamEntries = [];
   const flowEmitters = [];
 
-  // Test mode toggle
   const testBtn = document.getElementById('test-btn');
   const hudMode = document.getElementById('hud-mode');
   testBtn.addEventListener('click', () => {
     testMode = !testMode;
-    testBtn.textContent = testMode ? 'âœ… Test Mode ON' : 'ðŸ”§ Test Mode';
-    testBtn.classList.toggle('active', testMode);
-    hudMode.textContent = testMode ? 'MODE: TEST (all visible)' : '';
+    if (testMode) {
+      lockedAlpha = smoothedAlpha;
+      testBtn.textContent = 'TEST ON';
+      testBtn.classList.add('active');
+      hudMode.textContent = 'MODE: TEST (anchored)';
+    } else {
+      lockedAlpha = null;
+      testBtn.textContent = 'Test Mode';
+      testBtn.classList.remove('active');
+      hudMode.textContent = '';
+    }
   });
 
-  // Recalibrate button
   document.getElementById('recalibrate-btn').addEventListener('click', () => {
     compassOffset = SHARD_BEARING - currentHeading;
   });
 
-  // TrueLayer world position
   const tlClient = clients.find(c => c.name === 'TrueLayer');
   const tlBearing = getBearing(SKY_GARDEN.lat, SKY_GARDEN.lng, tlClient.lat, tlClient.lng);
   const tlDist = scaleDistance(getDistance(SKY_GARDEN.lat, SKY_GARDEN.lng, tlClient.lat, tlClient.lng));
   const tlBearingRad = tlBearing * Math.PI / 180;
-  const tlWorldPos = new THREE.Vector3(
-    Math.sin(tlBearingRad) * tlDist, -8, -Math.cos(tlBearingRad) * tlDist
-  );
+  const tlWorldPos = new THREE.Vector3(Math.sin(tlBearingRad) * tlDist, -8, -Math.cos(tlBearingRad) * tlDist);
 
-  // --- Clients ---
   clients.forEach((client) => {
     const bearing = getBearing(SKY_GARDEN.lat, SKY_GARDEN.lng, client.lat, client.lng);
     const distance = getDistance(SKY_GARDEN.lat, SKY_GARDEN.lng, client.lat, client.lng);
@@ -311,17 +321,12 @@ function createARScene() {
 
     const particles = new THREE.Group();
     const particleData = [];
-    const pCount = isTL ? 30 : 14;
+    const pCount = isTL ? 24 : 10;
     for (let i = 0; i < pCount; i++) {
-      const p = new THREE.Mesh(
-        new THREE.SphereGeometry(0.25, 4, 4),
-        new THREE.MeshBasicMaterial({
-          color: client.beamColor, transparent: true, opacity: 0.7,
-          blending: THREE.AdditiveBlending, depthWrite: false
-        })
-      );
+      const size = 0.4 + Math.random() * 0.8;
+      const p = createGlowSprite(client.beamColor, size);
       particleData.push({
-        mesh: p, speed: 0.015 + Math.random() * 0.025,
+        mesh: p, speed: 0.012 + Math.random() * 0.02,
         radius: 0.8 + Math.random() * 2, phase: Math.random() * Math.PI * 2,
         twist: 2 + Math.random() * 4, yPos: Math.random(),
         dir: Math.random() > 0.5 ? 1 : -1
@@ -339,11 +344,10 @@ function createARScene() {
       const clientWorldPos = group.position.clone();
       const tlFlowStart = tlWorldPos.clone().add(new THREE.Vector3(0, 15 + Math.random() * 50, 0));
       const clientFlowEnd = clientWorldPos.clone().add(new THREE.Vector3(0, 8, 0));
-      flowEmitters.push(createARFlow(tlFlowStart, clientFlowEnd, '#8b5cf6', '#2dd4bf', scene));
+      flowEmitters.push(createARFlow(tlFlowStart, clientFlowEnd, '#8b5cf6', '#2dd4bf', scene, glowTex));
     }
   });
 
-  // --- Banks ---
   banks.forEach((bank) => {
     const bearing = getBearing(SKY_GARDEN.lat, SKY_GARDEN.lng, bank.lat, bank.lng);
     const distance = getDistance(SKY_GARDEN.lat, SKY_GARDEN.lng, bank.lat, bank.lng);
@@ -369,7 +373,7 @@ function createARScene() {
     );
     glow.position.y = h / 2;
 
-    const badge = makeBadge(bank.initials, '#3f7dff', 'ðŸ¦');
+    const badge = makeBadge(bank.initials, '#3f7dff');
     const sprite = new THREE.Sprite(
       new THREE.SpriteMaterial({ map: badge, transparent: true, depthWrite: false })
     );
@@ -385,10 +389,9 @@ function createARScene() {
     const bankWorldPos = group.position.clone();
     const bankFlowStart = bankWorldPos.clone().add(new THREE.Vector3(0, 5, 0));
     const tlFlowEnd = tlWorldPos.clone().add(new THREE.Vector3(0, 15 + Math.random() * 50, 0));
-    flowEmitters.push(createARFlow(bankFlowStart, tlFlowEnd, '#d6ecff', '#5bb4ff', scene));
+    flowEmitters.push(createARFlow(bankFlowStart, tlFlowEnd, '#d6ecff', '#5bb4ff', scene, glowTex));
   });
 
-  // --- Animation Loop ---
   const hudHeading = document.getElementById('hud-heading');
   const hudBeams = document.getElementById('hud-beams');
 
@@ -405,7 +408,9 @@ function createARScene() {
 
     const adjustedHeading = (smoothedHeading + compassOffset + 360) % 360;
 
-    const alpha = smoothedAlpha * (Math.PI / 180);
+    // Camera: freeze compass in test mode, gyro still active
+    const alphaVal = (testMode && lockedAlpha !== null) ? lockedAlpha : smoothedAlpha;
+    const alpha = alphaVal * (Math.PI / 180);
     const beta = smoothedBeta * (Math.PI / 180);
     const gamma = smoothedGamma * (Math.PI / 180);
     const adjustedAlpha = alpha + compassOffset * (Math.PI / 180);
@@ -437,12 +442,11 @@ function createARScene() {
           const y = pd.yPos * b.h;
           const angle = pd.phase + pd.twist * pd.yPos + t * 0.3;
           pd.mesh.position.set(Math.cos(angle) * pd.radius, y, Math.sin(angle) * pd.radius);
-          pd.mesh.material.opacity = fade * (0.4 + Math.sin(t * 2 + pd.phase) * 0.3);
+          pd.mesh.material.opacity = fade * (0.3 + Math.sin(t * 2 + pd.phase) * 0.2);
         });
       }
     });
 
-    // Animate organic flocking flows
     flowEmitters.forEach((f) => {
       f.layers.forEach((layer) => {
         const arr = layer.geometry.attributes.position.array;
@@ -463,8 +467,8 @@ function createARScene() {
       });
     });
 
-    hudHeading.textContent = `Heading: ${adjustedHeading.toFixed(0)}\u00B0`;
-    hudBeams.textContent = `Beams visible: ${visibleCount}`;
+    hudHeading.textContent = 'Heading: ' + adjustedHeading.toFixed(0) + String.fromCharCode(176);
+    hudBeams.textContent = 'Beams visible: ' + visibleCount;
     renderer.render(scene, camera);
   }
 
@@ -477,7 +481,6 @@ function createARScene() {
   });
 }
 
-// --- Init ---
 async function init() {
   const cameraOK = await startCamera();
   if (!cameraOK) return;
