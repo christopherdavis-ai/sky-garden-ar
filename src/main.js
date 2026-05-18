@@ -148,7 +148,7 @@ if (client.logo) {
     spriteMat.needsUpdate = true;
     const img = logoTex.image;
     const aspect = img.width / img.height;
-    const h = 10;
+    const h = isTL ? 20 : 10;
     sprite.scale.set(h * aspect, h, 1);
   }, undefined, () => {});
 }
