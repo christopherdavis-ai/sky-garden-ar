@@ -67,10 +67,10 @@ function createFlow(points, colorA, colorB, scene) {
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  const m = new THREE.PointsMaterial({ size: 1.8, vertexColors: true, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
+  const m = new THREE.PointsMaterial({ size: 2.5, vertexColors: true, transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false });
   const pts = new THREE.Points(g, m);
   scene.add(pts);
-  flowEmitters.push({ curve, points: pts, count, speed: 0.11 + Math.random() * 0.1, offset: Math.random() });
+  flowEmitters.push({ curve, points: pts, count, speed: 0.05 + Math.random() * 0.05, offset: Math.random() });
 }
 
 const customLayer = {
@@ -119,13 +119,13 @@ this.scene.add(sgLabel);
 
       const beam = new THREE.Mesh(
         new THREE.CylinderGeometry(state.beamRadius, state.beamRadius, h, 20, 1, true),
-        new THREE.MeshBasicMaterial({ color: client.beamColor, transparent: true, opacity: 0.32, blending: THREE.AdditiveBlending, depthWrite: false })
+        new THREE.MeshBasicMaterial({ color: client.beamColor, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false })
       );
       beam.position.y = h / 2;
 
       const glow = new THREE.Mesh(
         new THREE.CylinderGeometry(state.beamRadius * 1.6, state.beamRadius * 1.6, h * 1.05, 20, 1, true),
-        new THREE.MeshBasicMaterial({ color: client.beamColor, transparent: true, opacity: 0.14, blending: THREE.AdditiveBlending, depthWrite: false })
+        new THREE.MeshBasicMaterial({ color: client.beamColor, transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending, depthWrite: false })
       );
       glow.position.y = h / 2;
 
