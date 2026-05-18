@@ -96,20 +96,19 @@ const customLayer = {
     radar.position.copy(tlPos).add(new THREE.Vector3(0, 0.2, 0));
     this.scene.add(radar);
     this.radar = radar;
-    // Sky Garden "You Are Here" marker
+ // Sky Garden "You Are Here" marker
 const sgRing = new THREE.Mesh(
-  new THREE.RingGeometry(6, 9, 48),
+  new THREE.RingGeometry(10, 14, 48),
   new THREE.MeshBasicMaterial({ color: '#ff4444', transparent: true, opacity: 0.8, side: THREE.DoubleSide })
 );
 sgRing.rotation.x = -Math.PI / 2;
-sgRing.position.set(0, 0.5, 0);
+sgRing.position.set(0, 1, 0);
 this.scene.add(sgRing);
-
 const sgLabel = new THREE.Sprite(
   new THREE.SpriteMaterial({ map: makeBadge('SKY', '#ff4444', '📍'), transparent: true, depthWrite: false })
 );
-sgLabel.scale.set(14, 10, 1);
-sgLabel.position.set(0, 15, 0);
+sgLabel.scale.set(18, 14, 1);
+sgLabel.position.set(0, 50, 0);
 this.scene.add(sgLabel);
 
     for (const client of clients) {
