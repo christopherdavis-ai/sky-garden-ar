@@ -154,15 +154,26 @@ if (client.logo) {
 }
 
       const particles = new THREE.Group();
-      for (let i = 0; i < VISUAL_DEFAULTS.particleCount; i++) {
-        const p = new THREE.Mesh(new THREE.SphereGeometry(0.45, 6, 6), new THREE.MeshBasicMaterial({ color: client.beamColor }));
-        const a = (i / VISUAL_DEFAULTS.particleCount) * Math.PI * 2;
-        p.position.set(Math.cos(a) * 7, 2 + (i % 6), Math.sin(a) * 7);
-        particles.add(p);
-      }
-      group.add(beam, glow, ring, sprite, particles);
-      this.scene.add(group);
-      beamObjects.push({ beam, glow, sprite, particles, baseHeight: h, trueLayer: isTL });
+    const particleData = [];
+    for (let i = 0; i < 18; i++) {
+      const p = new THREE.Mesh(
+        new THREE.SphereGeometry(0.35, 4, 4),
+        new THREE.MeshBasicMaterial({ color: client.beamColor, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false })
+      );
+      particleData.push({
+        mesh: p,
+        speed: 0.015 + Math.random() * 0.025,
+        radius: 3 + Math.random() * 5,
+        phase: Math.random() * Math.PI * 2,
+        twist: 2 + Math.random() * 4,
+        yPos: Math.random(),
+        dir: Math.random() > 0.5 ? 1 : -1
+      });
+      particles.add(p);
+    }
+    group.add(beam, glow, ring, sprite, particles);
+    this.scene.add(group);
+    beamObjects.push({ beam, glow, sprite, particles, particleData, baseHeight: h, trueLayer: isTL });
     }
 
     for (const bank of banks) {
@@ -222,7 +233,17 @@ if (client.logo) {
       o.beam.scale.set(pulse, 1, pulse);
       o.glow.scale.set(pulse * 1.08, 1, pulse * 1.08);
       o.sprite.position.y = o.baseHeight + 10 + Math.sin(t * 2 + i) * 1.8;
-      if (o.particles?.rotation) o.particles.rotation.y += 0.01;
+      if (o.particleData) {
+        o.particleData.forEach((pd) => {
+          pd.yPos += pd.speed * pd.dir * 0.016;
+          if (pd.yPos > 1) { pd.yPos = 1; pd.dir = -1; }
+          if (pd.yPos < 0) { pd.yPos = 0; pd.dir = 1; }
+          const y = pd.yPos * o.baseHeight;
+          const angle = pd.phase + pd.twist * pd.yPos + t * 0.3;
+          pd.mesh.position.set(Math.cos(angle) * pd.radius, y, Math.sin(angle) * pd.radius);
+          pd.mesh.material.opacity = 0.4 + Math.sin(t * 2 + pd.phase) * 0.3;
+        });
+      }
     });
 
     flowEmitters.forEach((f) => {
