@@ -202,14 +202,16 @@ if (client.logo) {
       group.add(beam, sq, badge);
       this.scene.add(group);
 
+      const tlH = 120 + Math.random() * 150;
       const mid = bankPos.clone().lerp(tlPos, 0.5).add(new THREE.Vector3(0, 95, 0));
-      createFlow([bankPos.clone().add(new THREE.Vector3(0, 8, 0)), mid, tlPos.clone().add(new THREE.Vector3(0, 220, 0))], '#d6ecff', '#5bb4ff', this.scene);
+      createFlow([bankPos.clone().add(new THREE.Vector3(0, 8, 0)), mid, tlPos.clone().add(new THREE.Vector3(0, tlH, 0))], '#d6ecff', '#5bb4ff', this.scene);
     }
 
     clients.filter((c) => c.name !== 'TrueLayer').forEach((c) => {
       const cPos = toLocalMeters(c.lng, c.lat);
+      const tlH = 120 + Math.random() * 150;
       const mid = tlPos.clone().lerp(cPos, 0.5).add(new THREE.Vector3(0, 80, 0));
-      createFlow([tlPos.clone().add(new THREE.Vector3(0, 220, 0)), mid, cPos.clone().add(new THREE.Vector3(0, 60, 0))], '#8b5cf6', '#2dd4bf', this.scene);
+      createFlow([tlPos.clone().add(new THREE.Vector3(0, tlH, 0)), mid, cPos.clone().add(new THREE.Vector3(0, 60, 0))], '#8b5cf6', '#2dd4bf', this.scene);
     });
   },
 
