@@ -97,18 +97,17 @@ const customLayer = {
     this.scene.add(radar);
     this.radar = radar;
  // Sky Garden "You Are Here" marker
-const sgRing = new THREE.Mesh(
-  new THREE.RingGeometry(10, 14, 48),
-  new THREE.MeshBasicMaterial({ color: '#ff4444', transparent: true, opacity: 0.8, side: THREE.DoubleSide })
+const sgBeam = new THREE.Mesh(
+  new THREE.CylinderGeometry(8, 8, 200, 20, 1, true),
+  new THREE.MeshBasicMaterial({ color: '#ff4444', transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false })
 );
-sgRing.rotation.x = -Math.PI / 2;
-sgRing.position.set(0, 1, 0);
-this.scene.add(sgRing);
+sgBeam.position.set(0, 100, 0);
+this.scene.add(sgBeam);
 const sgLabel = new THREE.Sprite(
   new THREE.SpriteMaterial({ map: makeBadge('SKY', '#ff4444', '📍'), transparent: true, depthWrite: false })
 );
-sgLabel.scale.set(18, 14, 1);
-sgLabel.position.set(0, 50, 0);
+sgLabel.scale.set(20, 15, 1);
+sgLabel.position.set(0, 220, 0);
 this.scene.add(sgLabel);
 
     for (const client of clients) {
