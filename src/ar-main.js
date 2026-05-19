@@ -24,7 +24,7 @@ function getBearing(lat1, lng1, lat2, lng2) {
   const dLng = (lng2 - lng1) * toRad;
   const y = Math.sin(dLng) * Math.cos(lat2 * toRad);
   const x = Math.cos(lat1 * toRad) * Math.sin(lat2 * toRad) -
-            Math.sin(lat1 * toRad) * Math.cos(lat2 * toRad) * Math.cos(dLng);
+    Math.sin(lat1 * toRad) * Math.cos(lat2 * toRad) * Math.cos(dLng);
   return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
 }
 
@@ -34,7 +34,7 @@ function getDistance(lat1, lng1, lat2, lng2) {
   const dLat = (lat2 - lat1) * toRad;
   const dLng = (lng2 - lng1) * toRad;
   const a = Math.sin(dLat / 2) ** 2 +
-            Math.cos(lat1 * toRad) * Math.cos(lat2 * toRad) * Math.sin(dLng / 2) ** 2;
+    Math.cos(lat1 * toRad) * Math.cos(lat2 * toRad) * Math.sin(dLng / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
@@ -122,6 +122,19 @@ function makeBadge(txt, fill, prefix = '') {
   return new THREE.CanvasTexture(c);
 }
 
+/* â”€â”€ Shared logo loader with aspect ratio â”€â”€ */
+function loadLogo(logoPath, spriteMat, sprite, baseHeight) {
+  const texLoader = new THREE.TextureLoader();
+  texLoader.load(logoPath, (logoTex) => {
+    logoTex.colorSpace = THREE.SRGBColorSpace;
+    spriteMat.map = logoTex;
+    spriteMat.needsUpdate = true;
+    const img = logoTex.image;
+    const aspect = img.width / img.height;
+    sprite.scale.set(baseHeight * aspect, baseHeight, 1);
+  }, undefined, () => { /* keep initials on fail */ });
+}
+
 function createARFlow(pointA, pointB, colorA, colorB, scene, glowTex) {
   const mid = pointA.clone().lerp(pointB, 0.5).add(new THREE.Vector3(0, 18, 0));
   const curve = new THREE.CatmullRomCurve3([pointA, mid, pointB]);
@@ -190,7 +203,7 @@ function handleOrientation(e) {
 
 async function startOrientation() {
   if (typeof DeviceOrientationEvent !== 'undefined' &&
-      typeof DeviceOrientationEvent.requestPermission === 'function') {
+    typeof DeviceOrientationEvent.requestPermission === 'function') {
     const iosOverlay = document.getElementById('ios-permission');
     iosOverlay.classList.remove('hidden');
     return new Promise((resolve) => {
@@ -266,6 +279,7 @@ function createARScene() {
   const tlBearingRad = tlBearing * Math.PI / 180;
   const tlWorldPos = new THREE.Vector3(Math.sin(tlBearingRad) * tlDist, -8, -Math.cos(tlBearingRad) * tlDist);
 
+  /* â”€â”€ CLIENT BEAMS â”€â”€ */
   clients.forEach((client) => {
     const bearing = getBearing(SKY_GARDEN.lat, SKY_GARDEN.lng, client.lat, client.lng);
     const distance = getDistance(SKY_GARDEN.lat, SKY_GARDEN.lng, client.lat, client.lng);
@@ -307,16 +321,7 @@ function createARScene() {
     sprite.position.y = h + 3;
 
     if (client.logo) {
-      const texLoader = new THREE.TextureLoader();
-      texLoader.load(client.logo, (logoTex) => {
-        logoTex.colorSpace = THREE.SRGBColorSpace;
-        spriteMat.map = logoTex;
-        spriteMat.needsUpdate = true;
-        const img = logoTex.image;
-        const aspect = img.width / img.height;
-        const logoH = isTL ? 16 : 6;
-        sprite.scale.set(logoH * aspect, logoH, 1);
-      }, undefined, () => {});
+      loadLogo(client.logo, spriteMat, sprite, isTL ? 16 : 6);
     }
 
     const particles = new THREE.Group();
@@ -348,6 +353,7 @@ function createARScene() {
     }
   });
 
+  /* â”€â”€ BANK BEAMS (with logo loading!) â”€â”€ */
   banks.forEach((bank) => {
     const bearing = getBearing(SKY_GARDEN.lat, SKY_GARDEN.lng, bank.lat, bank.lng);
     const distance = getDistance(SKY_GARDEN.lat, SKY_GARDEN.lng, bank.lat, bank.lng);
@@ -373,12 +379,16 @@ function createARScene() {
     );
     glow.position.y = h / 2;
 
-    const badge = makeBadge(bank.initials, '#3f7dff');
-    const sprite = new THREE.Sprite(
-      new THREE.SpriteMaterial({ map: badge, transparent: true, depthWrite: false })
-    );
+    /* Bank logo / badge sprite */
+    const badgeTex = makeBadge(bank.initials, '#3f7dff');
+    const spriteMat = new THREE.SpriteMaterial({ map: badgeTex, transparent: true, depthWrite: false });
+    const sprite = new THREE.Sprite(spriteMat);
     sprite.scale.set(5, 3.5, 1);
     sprite.position.y = h + 3;
+
+    if (bank.logo) {
+      loadLogo(bank.logo, spriteMat, sprite, 5);
+    }
 
     group.add(beam, glow, sprite);
     const bearingRad = bearing * Math.PI / 180;
@@ -408,7 +418,6 @@ function createARScene() {
 
     const adjustedHeading = (smoothedHeading + compassOffset + 360) % 360;
 
-    // Camera: freeze compass in test mode, gyro still active
     const alphaVal = (testMode && lockedAlpha !== null) ? lockedAlpha : smoothedAlpha;
     const alpha = alphaVal * (Math.PI / 180);
     const beta = smoothedBeta * (Math.PI / 180);
