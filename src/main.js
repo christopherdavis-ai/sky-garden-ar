@@ -15,13 +15,41 @@ const map = new maptilersdk.Map({
   canvasContextAttributes: { antialias: true }
 });
 
+/* â”€â”€ Lock View button (inject into page) â”€â”€ */
+const lockBtn = document.createElement('button');
+lockBtn.id = 'lockViewBtn';
+lockBtn.textContent = 'ðŸ”’ Lock View';
+lockBtn.style.cssText = 'position:fixed;top:12px;right:12px;z-index:9999;padding:10px 18px;background:#7C3AED;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;box-shadow:0 2px 12px rgba(0,0,0,0.4);';
+document.body.appendChild(lockBtn);
+
+let viewLocked = false;
+lockBtn.addEventListener('click', () => {
+  viewLocked = !viewLocked;
+  if (viewLocked) {
+    map.dragRotate.disable();
+    map.touchPitch.disable();
+    map.keyboard.disable();
+    // Keep zoom and pan working
+    lockBtn.textContent = 'ðŸ”“ Unlock View';
+    lockBtn.style.background = '#059669';
+  } else {
+    map.dragRotate.enable();
+    map.touchPitch.enable();
+    map.keyboard.enable();
+    lockBtn.textContent = 'ðŸ”’ Lock View';
+    lockBtn.style.background = '#7C3AED';
+  }
+});
+
+/* â”€â”€ Client sidebar list â”€â”€ */
 const list = document.getElementById('clientList');
 clients.forEach((c) => {
   const li = document.createElement('li');
-  li.innerHTML = `<span class="swatch" style="background:${c.beamColor}"></span>${c.name}`;
+  li.innerHTML = `${c.name}`;
   list.appendChild(li);
 });
 
+/* â”€â”€ State â”€â”€ */
 const state = { beamHeight: 120, beamRadius: 5, glowStrength: 0.45, day: false, flows: true };
 const beamObjects = [];
 const flowEmitters = [];
@@ -40,6 +68,7 @@ const toLocalMeters = (lng, lat) => {
   return new THREE.Vector3((mc.x - centerMerc.x) / m, 0, (mc.y - centerMerc.y) / m);
 };
 
+/* â”€â”€ Badge texture (fallback for initials) â”€â”€ */
 const makeBadge = (txt, fill, emoji = '') => {
   const c = document.createElement('canvas'); c.width = 180; c.height = 140;
   const ctx = c.getContext('2d');
@@ -50,6 +79,25 @@ const makeBadge = (txt, fill, emoji = '') => {
   return new THREE.CanvasTexture(c);
 };
 
+/* â”€â”€ Load logo onto a sprite (shared helper) â”€â”€ */
+function loadLogo(logoPath, spriteMat, sprite, baseSize) {
+  const texLoader = new THREE.TextureLoader();
+  texLoader.load(logoPath, (logoTex) => {
+    logoTex.colorSpace = THREE.SRGBColorSpace;
+    spriteMat.map = logoTex;
+    spriteMat.needsUpdate = true;
+    // Preserve aspect ratio
+    const img = logoTex.image;
+    const aspect = img.width / img.height;
+    if (aspect >= 1) {
+      sprite.scale.set(baseSize, baseSize / aspect, 1);
+    } else {
+      sprite.scale.set(baseSize * aspect, baseSize, 1);
+    }
+  }, undefined, () => { /* silently keep initials on fail */ });
+}
+
+/* â”€â”€ Payment flow particles â”€â”€ */
 function createFlow(points, colorA, colorB, scene) {
   const curve = new THREE.CatmullRomCurve3(points);
   const count = 100;
@@ -67,12 +115,13 @@ function createFlow(points, colorA, colorB, scene) {
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  const m = new THREE.PointsMaterial({ size: 2.5, vertexColors: true, transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false });
+  const m = new THREE.PointsMaterial({ size: 1.8, vertexColors: true, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
   const pts = new THREE.Points(g, m);
   scene.add(pts);
-  flowEmitters.push({ curve, points: pts, count, speed: 0.05 + Math.random() * 0.05, offset: Math.random() });
+  flowEmitters.push({ curve, points: pts, count, speed: 0.11 + Math.random() * 0.1, offset: Math.random() });
 }
 
+/* â”€â”€ Custom Three.js layer â”€â”€ */
 const customLayer = {
   id: 'sky-garden-three-layer',
   type: 'custom',
@@ -88,6 +137,7 @@ const customLayer = {
     const trueLayer = clients.find((c) => c.name === 'TrueLayer');
     const tlPos = toLocalMeters(trueLayer.lng, trueLayer.lat);
 
+    /* â”€â”€ Sky Garden radar ring â”€â”€ */
     const radar = new THREE.Mesh(
       new THREE.RingGeometry(9, 12, 56),
       new THREE.MeshBasicMaterial({ color: '#7C3AED', transparent: true, opacity: 0.9, side: THREE.DoubleSide })
@@ -96,20 +146,8 @@ const customLayer = {
     radar.position.copy(tlPos).add(new THREE.Vector3(0, 0.2, 0));
     this.scene.add(radar);
     this.radar = radar;
- // Sky Garden "You Are Here" marker
-const sgBeam = new THREE.Mesh(
-  new THREE.CylinderGeometry(8, 8, 200, 20, 1, true),
-  new THREE.MeshBasicMaterial({ color: '#ff4444', transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false })
-);
-sgBeam.position.set(0, 100, 0);
-this.scene.add(sgBeam);
-const sgLabel = new THREE.Sprite(
-  new THREE.SpriteMaterial({ map: makeBadge('SKY', '#ff4444', '📍'), transparent: true, depthWrite: false })
-);
-sgLabel.scale.set(20, 15, 1);
-sgLabel.position.set(0, 220, 0);
-this.scene.add(sgLabel);
 
+    /* â”€â”€ CLIENT BEAMS â”€â”€ */
     for (const client of clients) {
       const pos = toLocalMeters(client.lng, client.lat);
       const isTL = client.name === 'TrueLayer';
@@ -119,13 +157,13 @@ this.scene.add(sgLabel);
 
       const beam = new THREE.Mesh(
         new THREE.CylinderGeometry(state.beamRadius, state.beamRadius, h, 20, 1, true),
-        new THREE.MeshBasicMaterial({ color: client.beamColor, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false })
+        new THREE.MeshBasicMaterial({ color: client.beamColor, transparent: true, opacity: 0.32, blending: THREE.AdditiveBlending, depthWrite: false })
       );
       beam.position.y = h / 2;
 
       const glow = new THREE.Mesh(
         new THREE.CylinderGeometry(state.beamRadius * 1.6, state.beamRadius * 1.6, h * 1.05, 20, 1, true),
-        new THREE.MeshBasicMaterial({ color: client.beamColor, transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending, depthWrite: false })
+        new THREE.MeshBasicMaterial({ color: client.beamColor, transparent: true, opacity: 0.14, blending: THREE.AdditiveBlending, depthWrite: false })
       );
       glow.position.y = h / 2;
 
@@ -135,47 +173,31 @@ this.scene.add(sgLabel);
       );
       ring.rotation.x = -Math.PI / 2;
 
-     const badgeTexture = makeBadge(client.initials, client.beamColor);
-const spriteMat = new THREE.SpriteMaterial({map: badgeTexture, transparent: true, depthWrite: false});
-const sprite = new THREE.Sprite(spriteMat);
-sprite.scale.set(12, 9, 1);
-sprite.position.y = h + 10;
-if (client.logo) {
-  const texLoader = new THREE.TextureLoader();
-  texLoader.load(client.logo, (logoTex) => {
-    logoTex.colorSpace = THREE.SRGBColorSpace;
-    spriteMat.map = logoTex;
-    spriteMat.needsUpdate = true;
-    const img = logoTex.image;
-    const aspect = img.width / img.height;
-    const h = isTL ? 20 : 10;
-    sprite.scale.set(h * aspect, h, 1);
-  }, undefined, () => {});
-}
+      /* Logo / badge sprite */
+      const badgeTexture = makeBadge(client.initials, client.beamColor);
+      const spriteMat = new THREE.SpriteMaterial({ map: badgeTexture, transparent: true, depthWrite: false });
+      const sprite = new THREE.Sprite(spriteMat);
+      sprite.scale.set(12, 9, 1);
+      sprite.position.y = h + 10;
 
+      if (client.logo) {
+        loadLogo(client.logo, spriteMat, sprite, 14);
+      }
+
+      /* Orbiting particles */
       const particles = new THREE.Group();
-    const particleData = [];
-    for (let i = 0; i < 18; i++) {
-      const p = new THREE.Mesh(
-        new THREE.SphereGeometry(0.35, 4, 4),
-        new THREE.MeshBasicMaterial({ color: client.beamColor, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false })
-      );
-      particleData.push({
-        mesh: p,
-        speed: 0.015 + Math.random() * 0.025,
-        radius: 3 + Math.random() * 5,
-        phase: Math.random() * Math.PI * 2,
-        twist: 2 + Math.random() * 4,
-        yPos: Math.random(),
-        dir: Math.random() > 0.5 ? 1 : -1
-      });
-      particles.add(p);
-    }
-    group.add(beam, glow, ring, sprite, particles);
-    this.scene.add(group);
-    beamObjects.push({ beam, glow, sprite, particles, particleData, baseHeight: h, trueLayer: isTL });
+      for (let i = 0; i < VISUAL_DEFAULTS.particleCount; i++) {
+        const p = new THREE.Mesh(new THREE.SphereGeometry(0.45, 6, 6), new THREE.MeshBasicMaterial({ color: client.beamColor }));
+        const a = (i / VISUAL_DEFAULTS.particleCount) * Math.PI * 2;
+        p.position.set(Math.cos(a) * 7, 2 + (i % 6), Math.sin(a) * 7);
+        particles.add(p);
+      }
+      group.add(beam, glow, ring, sprite, particles);
+      this.scene.add(group);
+      beamObjects.push({ beam, glow, sprite, particles, baseHeight: h, trueLayer: isTL });
     }
 
+    /* â”€â”€ BANK BEAMS (with logo loading!) â”€â”€ */
     for (const bank of banks) {
       const bankPos = toLocalMeters(bank.lng, bank.lat);
       const h = 85;
@@ -194,24 +216,31 @@ if (client.logo) {
       );
       sq.rotation.x = -Math.PI / 2;
 
-      const badge = new THREE.Sprite(
-        new THREE.SpriteMaterial({ map: makeBadge(bank.initials, '#3f7dff', '🏦'), transparent: true, depthWrite: false })
-      );
+      /* Bank logo / badge sprite */
+      const badgeTexture = makeBadge(bank.initials, '#3f7dff', 'ðŸ¦');
+      const spriteMat = new THREE.SpriteMaterial({ map: badgeTexture, transparent: true, depthWrite: false });
+      const badge = new THREE.Sprite(spriteMat);
       badge.scale.set(14, 10, 1);
       badge.position.y = h + 10;
+
+      if (bank.logo) {
+        loadLogo(bank.logo, spriteMat, badge, 14);
+      }
+
       group.add(beam, sq, badge);
       this.scene.add(group);
+      beamObjects.push({ beam, glow: null, sprite: badge, particles: null, baseHeight: h, trueLayer: false });
 
-      const tlH = 120 + Math.random() * 150;
+      /* Flow: Bank â†’ TrueLayer */
       const mid = bankPos.clone().lerp(tlPos, 0.5).add(new THREE.Vector3(0, 95, 0));
-      createFlow([bankPos.clone().add(new THREE.Vector3(0, 8, 0)), mid, tlPos.clone().add(new THREE.Vector3(0, tlH, 0))], '#d6ecff', '#5bb4ff', this.scene);
+      createFlow([bankPos.clone().add(new THREE.Vector3(0, 8, 0)), mid, tlPos.clone().add(new THREE.Vector3(0, 220, 0))], '#d6ecff', '#5bb4ff', this.scene);
     }
 
+    /* â”€â”€ Flows: TrueLayer â†’ Clients â”€â”€ */
     clients.filter((c) => c.name !== 'TrueLayer').forEach((c) => {
       const cPos = toLocalMeters(c.lng, c.lat);
-      const tlH = 120 + Math.random() * 150;
       const mid = tlPos.clone().lerp(cPos, 0.5).add(new THREE.Vector3(0, 80, 0));
-      createFlow([tlPos.clone().add(new THREE.Vector3(0, tlH, 0)), mid, cPos.clone().add(new THREE.Vector3(0, 60, 0))], '#8b5cf6', '#2dd4bf', this.scene);
+      createFlow([tlPos.clone().add(new THREE.Vector3(0, 220, 0)), mid, cPos.clone().add(new THREE.Vector3(0, 60, 0))], '#8b5cf6', '#2dd4bf', this.scene);
     });
   },
 
@@ -233,19 +262,9 @@ if (client.logo) {
     beamObjects.forEach((o, i) => {
       const pulse = 1 + Math.sin(t * 1.7 + i * 0.3) * 0.1;
       o.beam.scale.set(pulse, 1, pulse);
-      o.glow.scale.set(pulse * 1.08, 1, pulse * 1.08);
+      if (o.glow) o.glow.scale.set(pulse * 1.08, 1, pulse * 1.08);
       o.sprite.position.y = o.baseHeight + 10 + Math.sin(t * 2 + i) * 1.8;
-      if (o.particleData) {
-        o.particleData.forEach((pd) => {
-          pd.yPos += pd.speed * pd.dir * 0.016;
-          if (pd.yPos > 1) { pd.yPos = 1; pd.dir = -1; }
-          if (pd.yPos < 0) { pd.yPos = 0; pd.dir = 1; }
-          const y = pd.yPos * o.baseHeight;
-          const angle = pd.phase + pd.twist * pd.yPos + t * 0.3;
-          pd.mesh.position.set(Math.cos(angle) * pd.radius, y, Math.sin(angle) * pd.radius);
-          pd.mesh.material.opacity = 0.4 + Math.sin(t * 2 + pd.phase) * 0.3;
-        });
-      }
+      if (o.particles?.rotation) o.particles.rotation.y += 0.01;
     });
 
     flowEmitters.forEach((f) => {
@@ -267,6 +286,7 @@ if (client.logo) {
 
 map.on('style.load', () => map.addLayer(customLayer));
 
+/* â”€â”€ UI Controls â”€â”€ */
 document.getElementById('dayToggle').addEventListener('change', (e) => {
   state.day = e.target.checked;
   map.setStyle(state.day ? maptilersdk.MapStyle.STREETS.PASTEL : maptilersdk.MapStyle.STREETS.DARK);
@@ -279,11 +299,16 @@ function applyBeamSettings() {
   state.glowStrength = Number(document.getElementById('glowStrength').value);
   beamObjects.forEach((o) => {
     if (o.trueLayer) return;
-    o.beam.geometry.dispose(); o.glow.geometry.dispose();
+    o.beam.geometry.dispose();
     o.beam.geometry = new THREE.CylinderGeometry(state.beamRadius, state.beamRadius, state.beamHeight, 20, 1, true);
-    o.glow.geometry = new THREE.CylinderGeometry(state.beamRadius * 1.6, state.beamRadius * 1.6, state.beamHeight * 1.05, 20, 1, true);
-    o.beam.position.y = state.beamHeight / 2; o.glow.position.y = state.beamHeight / 2; o.baseHeight = state.beamHeight;
-    o.glow.material.opacity = state.glowStrength * 0.3;
+    o.beam.position.y = state.beamHeight / 2;
+    if (o.glow) {
+      o.glow.geometry.dispose();
+      o.glow.geometry = new THREE.CylinderGeometry(state.beamRadius * 1.6, state.beamRadius * 1.6, state.beamHeight * 1.05, 20, 1, true);
+      o.glow.position.y = state.beamHeight / 2;
+      o.glow.material.opacity = state.glowStrength * 0.3;
+    }
+    o.baseHeight = state.beamHeight;
   });
 }
 ['beamHeight', 'beamRadius', 'glowStrength'].forEach((id) => document.getElementById(id).addEventListener('input', applyBeamSettings));
