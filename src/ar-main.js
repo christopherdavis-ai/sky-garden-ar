@@ -9,7 +9,6 @@ const SMOOTH_FACTOR = 0.08;
 let compassOffset = 0;
 let calibrated = false;
 let testMode = false;
-let lockedAlpha = null;
 let currentHeading = 0;
 let smoothedAlpha = 0;
 let smoothedBeta = 90;
@@ -122,7 +121,6 @@ function makeBadge(txt, fill, prefix = '') {
   return new THREE.CanvasTexture(c);
 }
 
-/* â”€â”€ Shared logo loader with aspect ratio â”€â”€ */
 function loadLogo(logoPath, spriteMat, sprite, baseHeight) {
   const texLoader = new THREE.TextureLoader();
   texLoader.load(logoPath, (logoTex) => {
@@ -147,8 +145,7 @@ function createARFlow(pointA, pointB, colorA, colorB, scene, glowTex) {
   for (let i = 0; i < count; i++) {
     const p = curve.getPoint(i / count);
     pos.set([p.x, p.y, p.z], i * 3);
-    const blend = i / count;
-    const c = c1.clone().lerp(c2, blend);
+    const c = c1.clone().lerp(c2, i / count);
     col.set([c.r, c.g, c.b], i * 3);
     seeds.push({
       sx: Math.random() * 100, sy: Math.random() * 100, sz: Math.random() * 100,
@@ -171,6 +168,21 @@ function createARFlow(pointA, pointB, colorA, colorB, scene, glowTex) {
     layers.push(pts);
   });
   return { curve, layers, count, seeds, speed: 0.025 + Math.random() * 0.02, offset: Math.random() };
+}
+
+/* ── Proper device orientation → quaternion (no gimbal lock) ── */
+const _zee = new THREE.Vector3(0, 0, 1);
+const _q1 = new THREE.Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5)); // -90° around X
+
+function getDeviceQuaternion(out, alpha, beta, gamma, screenOrient) {
+  const euler = new THREE.Euler(beta, alpha, -gamma, 'YXZ');
+  out.setFromEuler(euler);
+  out.multiply(_q1);
+  out.multiply(new THREE.Quaternion().setFromAxisAngle(_zee, -screenOrient));
+}
+
+function getScreenOrientation() {
+  return (window.screen.orientation?.angle || window.orientation || 0) * (Math.PI / 180);
 }
 
 async function startCamera() {
@@ -257,12 +269,10 @@ function createARScene() {
   testBtn.addEventListener('click', () => {
     testMode = !testMode;
     if (testMode) {
-      lockedAlpha = smoothedAlpha;
       testBtn.textContent = 'TEST ON';
       testBtn.classList.add('active');
-      hudMode.textContent = 'MODE: TEST (anchored)';
+      hudMode.textContent = 'MODE: TEST (all beams)';
     } else {
-      lockedAlpha = null;
       testBtn.textContent = 'Test Mode';
       testBtn.classList.remove('active');
       hudMode.textContent = '';
@@ -271,6 +281,8 @@ function createARScene() {
 
   document.getElementById('recalibrate-btn').addEventListener('click', () => {
     compassOffset = SHARD_BEARING - currentHeading;
+    hudMode.textContent = 'Recalibrated ✓';
+    setTimeout(() => { if (!testMode) hudMode.textContent = ''; }, 1500);
   });
 
   const tlClient = clients.find(c => c.name === 'TrueLayer');
@@ -279,7 +291,7 @@ function createARScene() {
   const tlBearingRad = tlBearing * Math.PI / 180;
   const tlWorldPos = new THREE.Vector3(Math.sin(tlBearingRad) * tlDist, -8, -Math.cos(tlBearingRad) * tlDist);
 
-  /* â”€â”€ CLIENT BEAMS â”€â”€ */
+  /* ── CLIENT BEAMS ── */
   clients.forEach((client) => {
     const bearing = getBearing(SKY_GARDEN.lat, SKY_GARDEN.lng, client.lat, client.lng);
     const distance = getDistance(SKY_GARDEN.lat, SKY_GARDEN.lng, client.lat, client.lng);
@@ -353,7 +365,7 @@ function createARScene() {
     }
   });
 
-  /* â”€â”€ BANK BEAMS (with logo loading!) â”€â”€ */
+  /* ── BANK BEAMS (with logos) ── */
   banks.forEach((bank) => {
     const bearing = getBearing(SKY_GARDEN.lat, SKY_GARDEN.lng, bank.lat, bank.lng);
     const distance = getDistance(SKY_GARDEN.lat, SKY_GARDEN.lng, bank.lat, bank.lng);
@@ -379,7 +391,6 @@ function createARScene() {
     );
     glow.position.y = h / 2;
 
-    /* Bank logo / badge sprite */
     const badgeTex = makeBadge(bank.initials, '#3f7dff');
     const spriteMat = new THREE.SpriteMaterial({ map: badgeTex, transparent: true, depthWrite: false });
     const sprite = new THREE.Sprite(spriteMat);
@@ -404,6 +415,7 @@ function createARScene() {
 
   const hudHeading = document.getElementById('hud-heading');
   const hudBeams = document.getElementById('hud-beams');
+  const deviceQuat = new THREE.Quaternion();
 
   function animate() {
     requestAnimationFrame(animate);
@@ -418,13 +430,14 @@ function createARScene() {
 
     const adjustedHeading = (smoothedHeading + compassOffset + 360) % 360;
 
-    const alphaVal = (testMode && lockedAlpha !== null) ? lockedAlpha : smoothedAlpha;
-    const alpha = alphaVal * (Math.PI / 180);
-    const beta = smoothedBeta * (Math.PI / 180);
-    const gamma = smoothedGamma * (Math.PI / 180);
-    const adjustedAlpha = alpha + compassOffset * (Math.PI / 180);
-    const euler = new THREE.Euler(beta - Math.PI / 2, adjustedAlpha, -gamma, 'YXZ');
-    camera.quaternion.setFromEuler(euler);
+    /* ── Proper quaternion camera (handles tilt correctly) ── */
+    const alphaRad = (smoothedAlpha * Math.PI / 180) + (compassOffset * Math.PI / 180);
+    const betaRad = smoothedBeta * Math.PI / 180;
+    const gammaRad = smoothedGamma * Math.PI / 180;
+    const screenOrient = getScreenOrientation();
+
+    getDeviceQuaternion(deviceQuat, alphaRad, betaRad, gammaRad, screenOrient);
+    camera.quaternion.copy(deviceQuat);
 
     let visibleCount = 0;
     beamEntries.forEach((b, i) => {
