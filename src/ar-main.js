@@ -130,7 +130,7 @@ function loadLogo(logoPath, spriteMat, sprite, baseHeight) {
     const img = logoTex.image;
     const aspect = img.width / img.height;
     sprite.scale.set(baseHeight * aspect, baseHeight, 1);
-  }, undefined, () => { /* keep initials on fail */ });
+  }, undefined, () => {});
 }
 
 function createARFlow(pointA, pointB, colorA, colorB, scene, glowTex) {
@@ -172,7 +172,7 @@ function createARFlow(pointA, pointB, colorA, colorB, scene, glowTex) {
 
 /* ── Proper device orientation → quaternion (no gimbal lock) ── */
 const _zee = new THREE.Vector3(0, 0, 1);
-const _q1 = new THREE.Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5)); // -90° around X
+const _q1 = new THREE.Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5));
 
 function getDeviceQuaternion(out, alpha, beta, gamma, screenOrient) {
   const euler = new THREE.Euler(beta, alpha, -gamma, 'YXZ');
@@ -183,6 +183,25 @@ function getDeviceQuaternion(out, alpha, beta, gamma, screenOrient) {
 
 function getScreenOrientation() {
   return (window.screen.orientation?.angle || window.orientation || 0) * (Math.PI / 180);
+}
+
+/* ── Fullscreen helpers ── */
+function requestFullscreen() {
+  const el = document.documentElement;
+  const rfs = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+  if (rfs) {
+    rfs.call(el).catch(() => {});
+  }
+  // Try to lock landscape
+  if (screen.orientation?.lock) {
+    screen.orientation.lock('landscape').catch(() => {});
+  }
+}
+
+function exitFullscreen() {
+  const efs = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
+  if (efs) efs.call(document).catch(() => {});
+  if (screen.orientation?.unlock) screen.orientation.unlock();
 }
 
 async function startCamera() {
@@ -243,9 +262,12 @@ function setupCalibration() {
     compassOffset = SHARD_BEARING - currentHeading;
     calibrated = true;
     overlay.classList.add('hidden');
+
+    // Go fullscreen & show UI
+    requestFullscreen();
     document.getElementById('hud').classList.remove('hidden');
-    document.getElementById('test-btn').classList.remove('hidden');
-    document.getElementById('recalibrate-btn').classList.remove('hidden');
+    document.getElementById('ar-controls').classList.remove('hidden');
+    document.getElementById('exit-fs-btn').classList.remove('hidden');
   });
 }
 
@@ -264,6 +286,12 @@ function createARScene() {
   const beamEntries = [];
   const flowEmitters = [];
 
+  /* ── Exit fullscreen button ── */
+  document.getElementById('exit-fs-btn').addEventListener('click', () => {
+    exitFullscreen();
+  });
+
+  /* ── Test mode ── */
   const testBtn = document.getElementById('test-btn');
   const hudMode = document.getElementById('hud-mode');
   testBtn.addEventListener('click', () => {
@@ -279,9 +307,17 @@ function createARScene() {
     }
   });
 
+  /* ── Recalibrate ── */
   document.getElementById('recalibrate-btn').addEventListener('click', () => {
     compassOffset = SHARD_BEARING - currentHeading;
     hudMode.textContent = 'Recalibrated ✓';
+    setTimeout(() => { if (!testMode) hudMode.textContent = ''; }, 1500);
+  });
+
+  /* ── Snap button (screenshot placeholder) ── */
+  document.getElementById('snap-btn').addEventListener('click', () => {
+    // Will implement photo capture later
+    hudMode.textContent = '📸 Coming soon!';
     setTimeout(() => { if (!testMode) hudMode.textContent = ''; }, 1500);
   });
 
@@ -430,7 +466,6 @@ function createARScene() {
 
     const adjustedHeading = (smoothedHeading + compassOffset + 360) % 360;
 
-    /* ── Proper quaternion camera (handles tilt correctly) ── */
     const alphaRad = (smoothedAlpha * Math.PI / 180) + (compassOffset * Math.PI / 180);
     const betaRad = smoothedBeta * Math.PI / 180;
     const gammaRad = smoothedGamma * Math.PI / 180;
@@ -496,11 +531,13 @@ function createARScene() {
 
   animate();
 
-  window.addEventListener('resize', () => {
+  function handleResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
-  });
+  }
+  window.addEventListener('resize', handleResize);
+  window.addEventListener('orientationchange', () => setTimeout(handleResize, 200));
 }
 
 async function init() {
