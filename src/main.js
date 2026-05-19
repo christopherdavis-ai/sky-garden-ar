@@ -15,28 +15,31 @@ const map = new maptilersdk.Map({
   canvasContextAttributes: { antialias: true }
 });
 
-/* â”€â”€ Lock View button (inject into page) â”€â”€ */
+/* â”€â”€ Disable rotation on load â€” pan & zoom only â”€â”€ */
+map.dragRotate.disable();
+map.touchZoomRotate.disableRotation();
+map.touchPitch.disable();
+
+/* â”€â”€ Lock/Unlock rotation button â”€â”€ */
 const lockBtn = document.createElement('button');
-lockBtn.id = 'lockViewBtn';
-lockBtn.textContent = 'ðŸ”’ Lock View';
+lockBtn.textContent = 'ðŸ”“ Enable Rotation';
 lockBtn.style.cssText = 'position:fixed;top:12px;right:12px;z-index:9999;padding:10px 18px;background:#7C3AED;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;box-shadow:0 2px 12px rgba(0,0,0,0.4);';
 document.body.appendChild(lockBtn);
 
-let viewLocked = false;
+let rotationEnabled = false;
 lockBtn.addEventListener('click', () => {
-  viewLocked = !viewLocked;
-  if (viewLocked) {
-    map.dragRotate.disable();
-    map.touchPitch.disable();
-    map.keyboard.disable();
-    // Keep zoom and pan working
-    lockBtn.textContent = 'ðŸ”“ Unlock View';
+  rotationEnabled = !rotationEnabled;
+  if (rotationEnabled) {
+    map.dragRotate.enable();
+    map.touchZoomRotate.enableRotation();
+    map.touchPitch.enable();
+    lockBtn.textContent = 'ðŸ”’ Lock View';
     lockBtn.style.background = '#059669';
   } else {
-    map.dragRotate.enable();
-    map.touchPitch.enable();
-    map.keyboard.enable();
-    lockBtn.textContent = 'ðŸ”’ Lock View';
+    map.dragRotate.disable();
+    map.touchZoomRotate.disableRotation();
+    map.touchPitch.disable();
+    lockBtn.textContent = 'ðŸ”“ Enable Rotation';
     lockBtn.style.background = '#7C3AED';
   }
 });
@@ -68,7 +71,7 @@ const toLocalMeters = (lng, lat) => {
   return new THREE.Vector3((mc.x - centerMerc.x) / m, 0, (mc.y - centerMerc.y) / m);
 };
 
-/* â”€â”€ Badge texture (fallback for initials) â”€â”€ */
+/* â”€â”€ Badge texture (initials fallback) â”€â”€ */
 const makeBadge = (txt, fill, emoji = '') => {
   const c = document.createElement('canvas'); c.width = 180; c.height = 140;
   const ctx = c.getContext('2d');
@@ -79,14 +82,13 @@ const makeBadge = (txt, fill, emoji = '') => {
   return new THREE.CanvasTexture(c);
 };
 
-/* â”€â”€ Load logo onto a sprite (shared helper) â”€â”€ */
+/* â”€â”€ Shared logo loader with aspect ratio â”€â”€ */
 function loadLogo(logoPath, spriteMat, sprite, baseSize) {
   const texLoader = new THREE.TextureLoader();
   texLoader.load(logoPath, (logoTex) => {
     logoTex.colorSpace = THREE.SRGBColorSpace;
     spriteMat.map = logoTex;
     spriteMat.needsUpdate = true;
-    // Preserve aspect ratio
     const img = logoTex.image;
     const aspect = img.width / img.height;
     if (aspect >= 1) {
@@ -94,7 +96,7 @@ function loadLogo(logoPath, spriteMat, sprite, baseSize) {
     } else {
       sprite.scale.set(baseSize * aspect, baseSize, 1);
     }
-  }, undefined, () => { /* silently keep initials on fail */ });
+  }, undefined, () => { /* keep initials on fail */ });
 }
 
 /* â”€â”€ Payment flow particles â”€â”€ */
@@ -108,8 +110,7 @@ function createFlow(points, colorA, colorB, scene) {
   for (let i = 0; i < count; i++) {
     const p = curve.getPoint(i / count);
     pos.set([p.x, p.y, p.z], i * 3);
-    const blend = i / count;
-    const c = c1.clone().lerp(c2, blend);
+    const c = c1.clone().lerp(c2, i / count);
     col.set([c.r, c.g, c.b], i * 3);
   }
   const g = new THREE.BufferGeometry();
@@ -197,7 +198,7 @@ const customLayer = {
       beamObjects.push({ beam, glow, sprite, particles, baseHeight: h, trueLayer: isTL });
     }
 
-    /* â”€â”€ BANK BEAMS (with logo loading!) â”€â”€ */
+    /* â”€â”€ BANK BEAMS (with logos) â”€â”€ */
     for (const bank of banks) {
       const bankPos = toLocalMeters(bank.lng, bank.lat);
       const h = 85;
