@@ -10,9 +10,6 @@ let compassOffset = 0;
 let calibrated = false;
 let testMode = false;
 let currentHeading = 0;
-let smoothedAlpha = 0;
-let smoothedBeta = 90;
-let smoothedGamma = 0;
 let smoothedHeading = 0;
 let deviceAlpha = 0;
 let deviceBeta = 90;
@@ -55,10 +52,6 @@ function lerpAngle(current, target, factor) {
   if (diff > 180) diff -= 360;
   if (diff < -180) diff += 360;
   return (current + diff * factor + 360) % 360;
-}
-
-function lerp(current, target, factor) {
-  return current + (target - current) * factor;
 }
 
 function createGlowTexture() {
@@ -170,6 +163,7 @@ function createARFlow(pointA, pointB, colorA, colorB, scene, glowTex) {
   return { curve, layers, count, seeds, speed: 0.025 + Math.random() * 0.02, offset: Math.random() };
 }
 
+/* ── Quaternion-based device orientation (no gimbal lock) ── */
 const _zee = new THREE.Vector3(0, 0, 1);
 const _q1 = new THREE.Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5));
 
@@ -276,6 +270,7 @@ function createARScene() {
   const glowTex = createGlowTexture();
   const beamEntries = [];
   const flowEmitters = [];
+  const allSprites = [];
 
   document.getElementById('exit-fs-btn').addEventListener('click', () => exitFullscreen());
 
@@ -311,6 +306,7 @@ function createARScene() {
   const tlBearingRad = tlBearing * Math.PI / 180;
   const tlWorldPos = new THREE.Vector3(Math.sin(tlBearingRad) * tlDist, -8, -Math.cos(tlBearingRad) * tlDist);
 
+  /* ── CLIENT BEAMS ── */
   clients.forEach((client) => {
     const bearing = getBearing(SKY_GARDEN.lat, SKY_GARDEN.lng, client.lat, client.lng);
     const distance = getDistance(SKY_GARDEN.lat, SKY_GARDEN.lng, client.lat, client.lng);
@@ -350,6 +346,7 @@ function createARScene() {
     const sprite = new THREE.Sprite(spriteMat);
     sprite.scale.set(isTL ? 12 : 6, isTL ? 9 : 4.5, 1);
     sprite.position.y = h + 3;
+    allSprites.push(sprite);
 
     if (client.logo) {
       loadLogo(client.logo, spriteMat, sprite, isTL ? 16 : 6);
@@ -384,6 +381,7 @@ function createARScene() {
     }
   });
 
+  /* ── BANK BEAMS (with logos) ── */
   banks.forEach((bank) => {
     const bearing = getBearing(SKY_GARDEN.lat, SKY_GARDEN.lng, bank.lat, bank.lng);
     const distance = getDistance(SKY_GARDEN.lat, SKY_GARDEN.lng, bank.lat, bank.lng);
@@ -414,6 +412,7 @@ function createARScene() {
     const sprite = new THREE.Sprite(spriteMat);
     sprite.scale.set(5, 3.5, 1);
     sprite.position.y = h + 3;
+    allSprites.push(sprite);
 
     if (bank.logo) {
       loadLogo(bank.logo, spriteMat, sprite, 5);
@@ -433,7 +432,12 @@ function createARScene() {
 
   const hudHeading = document.getElementById('hud-heading');
   const hudBeams = document.getElementById('hud-beams');
-  const deviceQuat = new THREE.Quaternion();
+
+  /* ── Quaternion SLERP smoothing (replaces angle smoothing) ── */
+  const rawQuat = new THREE.Quaternion();
+  const smoothQuat = new THREE.Quaternion();
+  let quatReady = false;
+  const camEuler = new THREE.Euler();
 
   function animate() {
     requestAnimationFrame(animate);
@@ -441,20 +445,31 @@ function createARScene() {
 
     const t = performance.now() * 0.001;
 
-    smoothedAlpha = lerpAngle(smoothedAlpha, deviceAlpha, SMOOTH_FACTOR);
-    smoothedBeta = lerp(smoothedBeta, deviceBeta, SMOOTH_FACTOR);
-    smoothedGamma = lerp(smoothedGamma, deviceGamma, SMOOTH_FACTOR);
+    /* ── Heading smoothing (for hemisphere fade only) ── */
     smoothedHeading = lerpAngle(smoothedHeading, currentHeading, SMOOTH_FACTOR);
-
     const adjustedHeading = (smoothedHeading + compassOffset + 360) % 360;
 
-    const alphaRad = (smoothedAlpha * Math.PI / 180) + (compassOffset * Math.PI / 180);
-    const betaRad = smoothedBeta * Math.PI / 180;
-    const gammaRad = smoothedGamma * Math.PI / 180;
+    /* ── Camera: quaternion SLERP (no gimbal lock on tilt) ── */
+    const alphaRad = (deviceAlpha * Math.PI / 180) + (compassOffset * Math.PI / 180);
+    const betaRad = deviceBeta * Math.PI / 180;
+    const gammaRad = deviceGamma * Math.PI / 180;
     const screenOrient = getScreenOrientation();
 
-    getDeviceQuaternion(deviceQuat, alphaRad, betaRad, gammaRad, screenOrient);
-    camera.quaternion.copy(deviceQuat);
+    getDeviceQuaternion(rawQuat, alphaRad, betaRad, gammaRad, screenOrient);
+
+    if (!quatReady) {
+      smoothQuat.copy(rawQuat);
+      quatReady = true;
+    } else {
+      smoothQuat.slerp(rawQuat, SMOOTH_FACTOR);
+    }
+
+    camera.quaternion.copy(smoothQuat);
+
+    /* ── Keep logos upright: counter camera roll ── */
+    camEuler.setFromQuaternion(smoothQuat, 'YXZ');
+    const counterRoll = -camEuler.z;
+    allSprites.forEach((s) => { s.material.rotation = counterRoll; });
 
     let visibleCount = 0;
     beamEntries.forEach((b, i) => {
@@ -471,7 +486,6 @@ function createARScene() {
       const pulse = 1 + Math.sin(t * 1.2 + i * 0.3) * 0.05;
       b.beam.scale.set(pulse, 1, pulse);
       b.glow.scale.set(pulse * 1.05, 1, pulse * 1.05);
-      b.sprite.position.y = b.h + 3 + Math.sin(t * 1.0 + i * 0.5) * 0.5;
 
       if (b.particleData) {
         b.particleData.forEach((pd) => {
