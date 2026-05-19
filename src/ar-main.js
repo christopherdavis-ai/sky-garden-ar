@@ -4,7 +4,7 @@ import banks from './data/banks.json';
 
 const SKY_GARDEN = { lat: 51.511398, lng: -0.083507, alt: 155 };
 const SHARD_BEARING = 195;
-const SMOOTH_FACTOR = 0.08;
+const SMOOTH_FACTOR = 0.15;
 
 let compassOffset = 0;
 let calibrated = false;
@@ -45,8 +45,8 @@ function getHemisphereFade(beamBearing, cameraHeading) {
   if (testMode) return 1.0;
   let diff = Math.abs(beamBearing - cameraHeading);
   if (diff > 180) diff = 360 - diff;
-  if (diff <= 80) return 1.0;
-  if (diff <= 110) return 1.0 - (diff - 80) / 30;
+  if (diff <= 100) return 1.0;
+  if (diff <= 145) return 1.0 - (diff - 100) / 45;
   return 0;
 }
 
@@ -136,7 +136,7 @@ function loadLogo(logoPath, spriteMat, sprite, baseHeight) {
 function createARFlow(pointA, pointB, colorA, colorB, scene, glowTex) {
   const mid = pointA.clone().lerp(pointB, 0.5).add(new THREE.Vector3(0, 18, 0));
   const curve = new THREE.CatmullRomCurve3([pointA, mid, pointB]);
-  const count = 100;
+  const count = 80;
   const pos = new Float32Array(count * 3);
   const col = new Float32Array(count * 3);
   const c1 = new THREE.Color(colorA);
@@ -149,13 +149,13 @@ function createARFlow(pointA, pointB, colorA, colorB, scene, glowTex) {
     col.set([c.r, c.g, c.b], i * 3);
     seeds.push({
       sx: Math.random() * 100, sy: Math.random() * 100, sz: Math.random() * 100,
-      freqX: 0.3 + Math.random() * 0.7, freqY: 0.2 + Math.random() * 0.5,
-      freqZ: 0.3 + Math.random() * 0.7, spread: 1 + Math.random() * 2.5,
+      freqX: 0.2 + Math.random() * 0.4, freqY: 0.15 + Math.random() * 0.3,
+      freqZ: 0.2 + Math.random() * 0.4, spread: 0.4 + Math.random() * 0.8,
       speedMult: 0.7 + Math.random() * 0.6
     });
   }
   const layers = [];
-  [{ size: 3.0, opacity: 0.15 }, { size: 1.2, opacity: 0.4 }].forEach((cfg) => {
+  [{ size: 2.0, opacity: 0.12 }, { size: 0.8, opacity: 0.35 }].forEach((cfg) => {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3));
     g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(col), 3));
@@ -170,7 +170,6 @@ function createARFlow(pointA, pointB, colorA, colorB, scene, glowTex) {
   return { curve, layers, count, seeds, speed: 0.025 + Math.random() * 0.02, offset: Math.random() };
 }
 
-/* ── Proper device orientation → quaternion (no gimbal lock) ── */
 const _zee = new THREE.Vector3(0, 0, 1);
 const _q1 = new THREE.Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5));
 
@@ -185,17 +184,11 @@ function getScreenOrientation() {
   return (window.screen.orientation?.angle || window.orientation || 0) * (Math.PI / 180);
 }
 
-/* ── Fullscreen helpers ── */
 function requestFullscreen() {
   const el = document.documentElement;
   const rfs = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
-  if (rfs) {
-    rfs.call(el).catch(() => {});
-  }
-  // Try to lock landscape
-  if (screen.orientation?.lock) {
-    screen.orientation.lock('landscape').catch(() => {});
-  }
+  if (rfs) rfs.call(el).catch(() => {});
+  if (screen.orientation?.lock) screen.orientation.lock('landscape').catch(() => {});
 }
 
 function exitFullscreen() {
@@ -262,8 +255,6 @@ function setupCalibration() {
     compassOffset = SHARD_BEARING - currentHeading;
     calibrated = true;
     overlay.classList.add('hidden');
-
-    // Go fullscreen & show UI
     requestFullscreen();
     document.getElementById('hud').classList.remove('hidden');
     document.getElementById('ar-controls').classList.remove('hidden');
@@ -286,12 +277,8 @@ function createARScene() {
   const beamEntries = [];
   const flowEmitters = [];
 
-  /* ── Exit fullscreen button ── */
-  document.getElementById('exit-fs-btn').addEventListener('click', () => {
-    exitFullscreen();
-  });
+  document.getElementById('exit-fs-btn').addEventListener('click', () => exitFullscreen());
 
-  /* ── Test mode ── */
   const testBtn = document.getElementById('test-btn');
   const hudMode = document.getElementById('hud-mode');
   testBtn.addEventListener('click', () => {
@@ -307,16 +294,13 @@ function createARScene() {
     }
   });
 
-  /* ── Recalibrate ── */
   document.getElementById('recalibrate-btn').addEventListener('click', () => {
     compassOffset = SHARD_BEARING - currentHeading;
     hudMode.textContent = 'Recalibrated ✓';
     setTimeout(() => { if (!testMode) hudMode.textContent = ''; }, 1500);
   });
 
-  /* ── Snap button (screenshot placeholder) ── */
   document.getElementById('snap-btn').addEventListener('click', () => {
-    // Will implement photo capture later
     hudMode.textContent = '📸 Coming soon!';
     setTimeout(() => { if (!testMode) hudMode.textContent = ''; }, 1500);
   });
@@ -327,7 +311,6 @@ function createARScene() {
   const tlBearingRad = tlBearing * Math.PI / 180;
   const tlWorldPos = new THREE.Vector3(Math.sin(tlBearingRad) * tlDist, -8, -Math.cos(tlBearingRad) * tlDist);
 
-  /* ── CLIENT BEAMS ── */
   clients.forEach((client) => {
     const bearing = getBearing(SKY_GARDEN.lat, SKY_GARDEN.lng, client.lat, client.lng);
     const distance = getDistance(SKY_GARDEN.lat, SKY_GARDEN.lng, client.lat, client.lng);
@@ -348,7 +331,7 @@ function createARScene() {
     const glow = new THREE.Mesh(
       new THREE.CylinderGeometry(isTL ? 2 : 1, isTL ? 2 : 1, h * 1.05, 12, 1, true),
       new THREE.MeshBasicMaterial({
-        color: client.beamColor, transparent: true, opacity: 0.2,
+        color: client.beamColor, transparent: true, opacity: 0.15,
         blending: THREE.AdditiveBlending, depthWrite: false
       })
     );
@@ -374,14 +357,14 @@ function createARScene() {
 
     const particles = new THREE.Group();
     const particleData = [];
-    const pCount = isTL ? 24 : 10;
+    const pCount = isTL ? 16 : 6;
     for (let i = 0; i < pCount; i++) {
-      const size = 0.4 + Math.random() * 0.8;
+      const size = 0.3 + Math.random() * 0.5;
       const p = createGlowSprite(client.beamColor, size);
       particleData.push({
-        mesh: p, speed: 0.012 + Math.random() * 0.02,
-        radius: 0.8 + Math.random() * 2, phase: Math.random() * Math.PI * 2,
-        twist: 2 + Math.random() * 4, yPos: Math.random(),
+        mesh: p, speed: 0.008 + Math.random() * 0.012,
+        radius: 0.6 + Math.random() * 1.2, phase: Math.random() * Math.PI * 2,
+        twist: 2 + Math.random() * 3, yPos: Math.random(),
         dir: Math.random() > 0.5 ? 1 : -1
       });
       particles.add(p);
@@ -401,7 +384,6 @@ function createARScene() {
     }
   });
 
-  /* ── BANK BEAMS (with logos) ── */
   banks.forEach((bank) => {
     const bearing = getBearing(SKY_GARDEN.lat, SKY_GARDEN.lng, bank.lat, bank.lng);
     const distance = getDistance(SKY_GARDEN.lat, SKY_GARDEN.lng, bank.lat, bank.lng);
@@ -482,14 +464,14 @@ function createARScene() {
       visibleCount++;
 
       b.beam.material.opacity = fade * (b.isTL ? 0.6 : 0.5);
-      b.glow.material.opacity = fade * 0.25;
+      b.glow.material.opacity = fade * 0.2;
       b.sprite.material.opacity = fade;
       if (b.ring) b.ring.material.opacity = fade * 0.7;
 
-      const pulse = 1 + Math.sin(t * 1.7 + i * 0.3) * 0.08;
+      const pulse = 1 + Math.sin(t * 1.2 + i * 0.3) * 0.05;
       b.beam.scale.set(pulse, 1, pulse);
-      b.glow.scale.set(pulse * 1.1, 1, pulse * 1.1);
-      b.sprite.position.y = b.h + 3 + Math.sin(t * 1.5 + i * 0.5) * 0.8;
+      b.glow.scale.set(pulse * 1.05, 1, pulse * 1.05);
+      b.sprite.position.y = b.h + 3 + Math.sin(t * 1.0 + i * 0.5) * 0.5;
 
       if (b.particleData) {
         b.particleData.forEach((pd) => {
@@ -497,9 +479,9 @@ function createARScene() {
           if (pd.yPos > 1) { pd.yPos = 1; pd.dir = -1; }
           if (pd.yPos < 0) { pd.yPos = 0; pd.dir = 1; }
           const y = pd.yPos * b.h;
-          const angle = pd.phase + pd.twist * pd.yPos + t * 0.3;
+          const angle = pd.phase + pd.twist * pd.yPos + t * 0.2;
           pd.mesh.position.set(Math.cos(angle) * pd.radius, y, Math.sin(angle) * pd.radius);
-          pd.mesh.material.opacity = fade * (0.3 + Math.sin(t * 2 + pd.phase) * 0.2);
+          pd.mesh.material.opacity = fade * (0.25 + Math.sin(t * 1.5 + pd.phase) * 0.15);
         });
       }
     });
@@ -511,14 +493,12 @@ function createARScene() {
           const u = (i / f.count + t * f.speed * f.seeds[i].speedMult + f.offset) % 1;
           const p = f.curve.getPoint(u);
           const s = f.seeds[i];
-          const turbX = Math.sin(t * s.freqX + s.sx) * Math.cos(t * 0.4 + s.sy) * s.spread;
-          const turbY = Math.sin(t * s.freqY + s.sy) * Math.cos(t * 0.35 + s.sz) * s.spread * 0.4;
-          const turbZ = Math.cos(t * s.freqZ + s.sz) * Math.sin(t * 0.45 + s.sx) * s.spread;
-          const swirl = t * 0.8 + i * 0.15;
-          const swirlR = s.spread * 0.3;
-          arr[i * 3] = p.x + turbX + Math.cos(swirl) * swirlR;
+          const turbX = Math.sin(t * s.freqX + s.sx) * s.spread;
+          const turbY = Math.sin(t * s.freqY + s.sy) * s.spread * 0.3;
+          const turbZ = Math.cos(t * s.freqZ + s.sz) * s.spread;
+          arr[i * 3] = p.x + turbX;
           arr[i * 3 + 1] = p.y + turbY;
-          arr[i * 3 + 2] = p.z + turbZ + Math.sin(swirl) * swirlR;
+          arr[i * 3 + 2] = p.z + turbZ;
         }
         layer.geometry.attributes.position.needsUpdate = true;
       });
