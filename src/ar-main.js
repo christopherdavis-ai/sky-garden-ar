@@ -80,7 +80,7 @@ function createGlowTexture() {
   return tex;
 }
 
-/* Particle sprite now reuses ONE shared glow texture + tints via material.color
+/* Particle sprite reuses ONE shared glow texture + tints via material.color
    (was creating a new canvas texture per particle = ~780 textures at load) */
 function makeParticleSprite(color, size, sharedTex) {
   const mat = new THREE.SpriteMaterial({ map: sharedTex, color: new THREE.Color(color), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
@@ -208,13 +208,16 @@ async function startCamera() {
 }
 
 function handleOrientation(e) {
+  // Some Android devices fire 'deviceorientation' with null values - ignore those
+  // so a good 'deviceorientationabsolute' reading isn't overwritten with zeros.
+  if (e.alpha == null && e.webkitCompassHeading == null) return;
   deviceAlpha = e.alpha || 0;
-  deviceBeta = e.beta || 90;
+  deviceBeta = e.beta != null ? e.beta : 90;
   deviceGamma = e.gamma || 0;
-  if (e.webkitCompassHeading !== undefined) {
-    currentHeading = e.webkitCompassHeading;
-  } else if (e.alpha !== null) {
-    currentHeading = (360 - e.alpha) % 360;
+  if (typeof e.webkitCompassHeading === 'number') {
+    currentHeading = e.webkitCompassHeading;        // iOS Safari
+  } else if (e.alpha != null) {
+    currentHeading = (360 - e.alpha) % 360;          // Android (absolute/relative)
   }
 }
 
@@ -236,6 +239,9 @@ async function startOrientation() {
       });
     });
   } else {
+    // Android/desktop: prefer the absolute (compass-referenced) event; many
+    // Android devices only deliver usable alpha via 'deviceorientationabsolute'.
+    window.addEventListener('deviceorientationabsolute', handleOrientation, true);
     window.addEventListener('deviceorientation', handleOrientation, true);
     return true;
   }
@@ -506,7 +512,8 @@ function createARScene() {
       });
     });
 
-    hudHeading.textContent = 'Heading: ' + adjustedHeading.toFixed(0) + String.fromCharCode(176);
+    hudHeading.textContent = 'Heading: ' + adjustedHeading.toFixed(0) + String.fromCharCode(176) +
+      '  \u03b1' + deviceAlpha.toFixed(0) + ' \u03b2' + deviceBeta.toFixed(0) + ' \u03b3' + deviceGamma.toFixed(0);
     hudBeams.textContent = 'Beams visible: ' + visibleCount;
     renderer.render(scene, camera);
   }
