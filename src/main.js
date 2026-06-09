@@ -15,14 +15,14 @@ const map = new maptilersdk.Map({
   canvasContextAttributes: { antialias: true }
 });
 
-/* â”€â”€ Disable rotation on load â€” pan & zoom only â”€â”€ */
+/* -- Disable rotation on load -- pan & zoom only -- */
 map.dragRotate.disable();
 map.touchZoomRotate.disableRotation();
 map.touchPitch.disable();
 
-/* â”€â”€ Lock/Unlock rotation button â”€â”€ */
+/* -- Lock/Unlock rotation button -- */
 const lockBtn = document.createElement('button');
-lockBtn.textContent = 'ðŸ”“ Enable Rotation';
+lockBtn.textContent = '🔓 Enable Rotation';
 lockBtn.style.cssText = 'position:fixed;top:12px;right:12px;z-index:9999;padding:10px 18px;background:#7C3AED;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;box-shadow:0 2px 12px rgba(0,0,0,0.4);';
 document.body.appendChild(lockBtn);
 
@@ -33,18 +33,18 @@ lockBtn.addEventListener('click', () => {
     map.dragRotate.enable();
     map.touchZoomRotate.enableRotation();
     map.touchPitch.enable();
-    lockBtn.textContent = 'ðŸ”’ Lock View';
+    lockBtn.textContent = '🔒 Lock View';
     lockBtn.style.background = '#059669';
   } else {
     map.dragRotate.disable();
     map.touchZoomRotate.disableRotation();
     map.touchPitch.disable();
-    lockBtn.textContent = 'ðŸ”“ Enable Rotation';
+    lockBtn.textContent = '🔓 Enable Rotation';
     lockBtn.style.background = '#7C3AED';
   }
 });
 
-/* â”€â”€ Client sidebar list â”€â”€ */
+/* -- Client sidebar list -- */
 const list = document.getElementById('clientList');
 clients.forEach((c) => {
   const li = document.createElement('li');
@@ -52,8 +52,8 @@ clients.forEach((c) => {
   list.appendChild(li);
 });
 
-/* â”€â”€ State â”€â”€ */
-const state = { beamHeight: 120, beamRadius: 5, glowStrength: 0.45, day: false, flows: true };
+/* -- State -- */
+const state = { beamHeight: VISUAL_DEFAULTS.beamHeight, beamRadius: 5, glowStrength: 0.45, day: false, flows: true };
 const beamObjects = [];
 const flowEmitters = [];
 const centerMerc = maptilersdk.MercatorCoordinate.fromLngLat([SKY_GARDEN_ORIGIN.lng, SKY_GARDEN_ORIGIN.lat], 0);
@@ -71,7 +71,14 @@ const toLocalMeters = (lng, lat) => {
   return new THREE.Vector3((mc.x - centerMerc.x) / m, 0, (mc.y - centerMerc.y) / m);
 };
 
-/* â”€â”€ Badge texture (initials fallback) â”€â”€ */
+/* -- Deterministic jitter so beams at identical coords don't perfectly overlap -- */
+const hashStr = (s) => { let h = 0; for (let i = 0; i < s.length; i++) { h = (h * 31 + s.charCodeAt(i)) | 0; } return Math.abs(h); };
+const jitter = (name) => {
+  const h = hashStr(name);
+  return new THREE.Vector3(((h % 13) - 6) * 1.3, 0, (((h >> 4) % 13) - 6) * 1.3);
+};
+
+/* -- Badge texture (initials fallback) -- */
 const makeBadge = (txt, fill, emoji = '') => {
   const c = document.createElement('canvas'); c.width = 180; c.height = 140;
   const ctx = c.getContext('2d');
@@ -82,7 +89,7 @@ const makeBadge = (txt, fill, emoji = '') => {
   return new THREE.CanvasTexture(c);
 };
 
-/* â”€â”€ Shared logo loader with aspect ratio â”€â”€ */
+/* -- Shared logo loader with aspect ratio -- */
 function loadLogo(logoPath, spriteMat, sprite, baseSize) {
   const texLoader = new THREE.TextureLoader();
   texLoader.load(logoPath, (logoTex) => {
@@ -91,18 +98,15 @@ function loadLogo(logoPath, spriteMat, sprite, baseSize) {
     spriteMat.needsUpdate = true;
     const img = logoTex.image;
     const aspect = img.width / img.height;
-    if (aspect >= 1) {
-      sprite.scale.set(baseSize, baseSize / aspect, 1);
-    } else {
-      sprite.scale.set(baseSize * aspect, baseSize, 1);
-    }
+    if (aspect >= 1) { sprite.scale.set(baseSize, baseSize / aspect, 1); }
+    else { sprite.scale.set(baseSize * aspect, baseSize, 1); }
   }, undefined, () => { /* keep initials on fail */ });
 }
 
-/* â”€â”€ Payment flow particles â”€â”€ */
+/* -- Payment flow particles (lighter: 50 pts) -- */
 function createFlow(points, colorA, colorB, scene) {
   const curve = new THREE.CatmullRomCurve3(points);
-  const count = 100;
+  const count = 50;
   const pos = new Float32Array(count * 3);
   const col = new Float32Array(count * 3);
   const c1 = new THREE.Color(colorA);
@@ -122,7 +126,23 @@ function createFlow(points, colorA, colorB, scene) {
   flowEmitters.push({ curve, points: pts, count, speed: 0.11 + Math.random() * 0.1, offset: Math.random() });
 }
 
-/* â”€â”€ Custom Three.js layer â”€â”€ */
+/* -- ONE Points cloud per beam instead of N sphere meshes (big perf win) -- */
+function makeParticleRing(color, height) {
+  const n = VISUAL_DEFAULTS.particleCount;
+  const geo = new THREE.BufferGeometry();
+  const pos = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    pos[i * 3] = Math.cos(a) * 7;
+    pos[i * 3 + 1] = 2 + (i % 6) * (height / 40);
+    pos[i * 3 + 2] = Math.sin(a) * 7;
+  }
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const mat = new THREE.PointsMaterial({ color, size: 1.7, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false });
+  return new THREE.Points(geo, mat);
+}
+
+/* -- Custom Three.js layer -- */
 const customLayer = {
   id: 'sky-garden-three-layer',
   type: 'custom',
@@ -138,7 +158,7 @@ const customLayer = {
     const trueLayer = clients.find((c) => c.name === 'TrueLayer');
     const tlPos = toLocalMeters(trueLayer.lng, trueLayer.lat);
 
-    /* â”€â”€ Sky Garden radar ring â”€â”€ */
+    /* -- Sky Garden radar ring -- */
     const radar = new THREE.Mesh(
       new THREE.RingGeometry(9, 12, 56),
       new THREE.MeshBasicMaterial({ color: '#7C3AED', transparent: true, opacity: 0.9, side: THREE.DoubleSide })
@@ -148,11 +168,12 @@ const customLayer = {
     this.scene.add(radar);
     this.radar = radar;
 
-    /* â”€â”€ CLIENT BEAMS â”€â”€ */
+    /* -- CLIENT BEAMS -- */
     for (const client of clients) {
-      const pos = toLocalMeters(client.lng, client.lat);
       const isTL = client.name === 'TrueLayer';
-      const h = isTL ? 300 : state.beamHeight;
+      const pos = toLocalMeters(client.lng, client.lat);
+      if (!isTL) pos.add(jitter(client.name));
+      const h = client.height || state.beamHeight;
       const group = new THREE.Group();
       group.position.copy(pos);
 
@@ -180,28 +201,20 @@ const customLayer = {
       const sprite = new THREE.Sprite(spriteMat);
       sprite.scale.set(12, 9, 1);
       sprite.position.y = h + 10;
+      if (client.logo) loadLogo(client.logo, spriteMat, sprite, 14);
 
-      if (client.logo) {
-        loadLogo(client.logo, spriteMat, sprite, 14);
-      }
+      /* Orbiting particles (single Points cloud) */
+      const particles = makeParticleRing(client.beamColor, h);
 
-      /* Orbiting particles */
-      const particles = new THREE.Group();
-      for (let i = 0; i < VISUAL_DEFAULTS.particleCount; i++) {
-        const p = new THREE.Mesh(new THREE.SphereGeometry(0.45, 6, 6), new THREE.MeshBasicMaterial({ color: client.beamColor }));
-        const a = (i / VISUAL_DEFAULTS.particleCount) * Math.PI * 2;
-        p.position.set(Math.cos(a) * 7, 2 + (i % 6), Math.sin(a) * 7);
-        particles.add(p);
-      }
       group.add(beam, glow, ring, sprite, particles);
       this.scene.add(group);
-      beamObjects.push({ beam, glow, sprite, particles, baseHeight: h, trueLayer: isTL });
+      beamObjects.push({ beam, glow, sprite, particles, baseHeight: h, designHeight: h, trueLayer: isTL });
     }
 
-    /* â”€â”€ BANK BEAMS (with logos) â”€â”€ */
+    /* -- BANK BEAMS (tall tier, with logos) -- */
     for (const bank of banks) {
-      const bankPos = toLocalMeters(bank.lng, bank.lat);
-      const h = 85;
+      const bankPos = toLocalMeters(bank.lng, bank.lat).add(jitter(bank.name));
+      const h = bank.height || 85;
       const group = new THREE.Group();
       group.position.copy(bankPos);
 
@@ -218,28 +231,25 @@ const customLayer = {
       sq.rotation.x = -Math.PI / 2;
 
       /* Bank logo / badge sprite */
-      const badgeTexture = makeBadge(bank.initials, '#3f7dff', 'ðŸ¦');
+      const badgeTexture = makeBadge(bank.initials, '#3f7dff', '🏦');
       const spriteMat = new THREE.SpriteMaterial({ map: badgeTexture, transparent: true, depthWrite: false });
       const badge = new THREE.Sprite(spriteMat);
       badge.scale.set(14, 10, 1);
       badge.position.y = h + 10;
-
-      if (bank.logo) {
-        loadLogo(bank.logo, spriteMat, badge, 14);
-      }
+      if (bank.logo) loadLogo(bank.logo, spriteMat, badge, 14);
 
       group.add(beam, sq, badge);
       this.scene.add(group);
-      beamObjects.push({ beam, glow: null, sprite: badge, particles: null, baseHeight: h, trueLayer: false });
+      beamObjects.push({ beam, glow: null, sprite: badge, particles: null, baseHeight: h, designHeight: h, trueLayer: false });
 
-      /* Flow: Bank â†’ TrueLayer */
+      /* Flow: Bank -> TrueLayer */
       const mid = bankPos.clone().lerp(tlPos, 0.5).add(new THREE.Vector3(0, 95, 0));
       createFlow([bankPos.clone().add(new THREE.Vector3(0, 8, 0)), mid, tlPos.clone().add(new THREE.Vector3(0, 220, 0))], '#d6ecff', '#5bb4ff', this.scene);
     }
 
-    /* â”€â”€ Flows: TrueLayer â†’ Clients â”€â”€ */
-    clients.filter((c) => c.name !== 'TrueLayer').forEach((c) => {
-      const cPos = toLocalMeters(c.lng, c.lat);
+    /* -- Flows: TrueLayer -> Star clients only (perf) -- */
+    clients.filter((c) => c.tier === 'star').forEach((c) => {
+      const cPos = toLocalMeters(c.lng, c.lat).add(jitter(c.name));
       const mid = tlPos.clone().lerp(cPos, 0.5).add(new THREE.Vector3(0, 80, 0));
       createFlow([tlPos.clone().add(new THREE.Vector3(0, 220, 0)), mid, cPos.clone().add(new THREE.Vector3(0, 60, 0))], '#8b5cf6', '#2dd4bf', this.scene);
     });
@@ -265,19 +275,23 @@ const customLayer = {
       o.beam.scale.set(pulse, 1, pulse);
       if (o.glow) o.glow.scale.set(pulse * 1.08, 1, pulse * 1.08);
       o.sprite.position.y = o.baseHeight + 10 + Math.sin(t * 2 + i) * 1.8;
-      if (o.particles?.rotation) o.particles.rotation.y += 0.01;
+      if (o.particles) o.particles.rotation.y += 0.01;
     });
 
-    flowEmitters.forEach((f) => {
-      f.points.visible = state.flows;
-      const arr = f.points.geometry.attributes.position.array;
-      for (let i = 0; i < f.count; i++) {
-        const u = (i / f.count + t * f.speed + f.offset) % 1;
-        const p = f.curve.getPoint(u);
-        arr[i * 3] = p.x; arr[i * 3 + 1] = p.y; arr[i * 3 + 2] = p.z;
-      }
-      f.points.geometry.attributes.position.needsUpdate = true;
-    });
+    if (state.flows) {
+      flowEmitters.forEach((f) => {
+        f.points.visible = true;
+        const arr = f.points.geometry.attributes.position.array;
+        for (let i = 0; i < f.count; i++) {
+          const u = (i / f.count + t * f.speed + f.offset) % 1;
+          const p = f.curve.getPoint(u);
+          arr[i * 3] = p.x; arr[i * 3 + 1] = p.y; arr[i * 3 + 2] = p.z;
+        }
+        f.points.geometry.attributes.position.needsUpdate = true;
+      });
+    } else {
+      flowEmitters.forEach((f) => { f.points.visible = false; });
+    }
 
     this.renderer.resetState();
     this.renderer.render(this.scene, this.camera);
@@ -287,7 +301,7 @@ const customLayer = {
 
 map.on('style.load', () => map.addLayer(customLayer));
 
-/* â”€â”€ UI Controls â”€â”€ */
+/* -- UI Controls -- */
 document.getElementById('dayToggle').addEventListener('change', (e) => {
   state.day = e.target.checked;
   map.setStyle(state.day ? maptilersdk.MapStyle.STREETS.PASTEL : maptilersdk.MapStyle.STREETS.DARK);
@@ -298,18 +312,21 @@ function applyBeamSettings() {
   state.beamHeight = Number(document.getElementById('beamHeight').value);
   state.beamRadius = Number(document.getElementById('beamRadius').value);
   state.glowStrength = Number(document.getElementById('glowStrength').value);
+  /* Slider acts as a multiplier so per-item (star/bank/random) heights are preserved */
+  const mult = state.beamHeight / VISUAL_DEFAULTS.beamHeight;
   beamObjects.forEach((o) => {
     if (o.trueLayer) return;
+    const h = o.designHeight * mult;
     o.beam.geometry.dispose();
-    o.beam.geometry = new THREE.CylinderGeometry(state.beamRadius, state.beamRadius, state.beamHeight, 20, 1, true);
-    o.beam.position.y = state.beamHeight / 2;
+    o.beam.geometry = new THREE.CylinderGeometry(state.beamRadius, state.beamRadius, h, 20, 1, true);
+    o.beam.position.y = h / 2;
     if (o.glow) {
       o.glow.geometry.dispose();
-      o.glow.geometry = new THREE.CylinderGeometry(state.beamRadius * 1.6, state.beamRadius * 1.6, state.beamHeight * 1.05, 20, 1, true);
-      o.glow.position.y = state.beamHeight / 2;
+      o.glow.geometry = new THREE.CylinderGeometry(state.beamRadius * 1.6, state.beamRadius * 1.6, h * 1.05, 20, 1, true);
+      o.glow.position.y = h / 2;
       o.glow.material.opacity = state.glowStrength * 0.3;
     }
-    o.baseHeight = state.beamHeight;
+    o.baseHeight = h;
   });
 }
 ['beamHeight', 'beamRadius', 'glowStrength'].forEach((id) => document.getElementById(id).addEventListener('input', applyBeamSettings));
