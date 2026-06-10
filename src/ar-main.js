@@ -525,16 +525,40 @@ function createARScene() {
     flowEmitters.push(flow);
   });
 
-  /* -- STATIC LINK-LATTICE: faint web from every node to TrueLayer -- */
-  const tlHub = tlWorldPos.clone().add(new THREE.Vector3(0, 30, 0));
+ /* -- LATTICE: curved, height-varied web from every node toward TrueLayer -- */
+  const LATTICE_SEG = 18;
   const linePos = [];
   nodeWorldPositions.forEach((p) => {
-    linePos.push(tlHub.x, tlHub.y, tlHub.z, p.x, p.y + 8, p.z);
+    // jittered hub point near TrueLayer (spread vertically, not one dot)
+    const hub = tlWorldPos.clone().add(new THREE.Vector3(
+      (Math.random() - 0.5) * 16,
+      20 + Math.random() * 55,
+      (Math.random() - 0.5) * 16
+    ));
+    // jittered attach point along the node's beam (varied heights)
+    const end = p.clone().add(new THREE.Vector3(
+      (Math.random() - 0.5) * 4,
+      10 + Math.random() * 45,
+      (Math.random() - 0.5) * 4
+    ));
+    // arched control point with random lift -> gentle organic curve
+    const mid = hub.clone().lerp(end, 0.5).add(new THREE.Vector3(
+      (Math.random() - 0.5) * 24,
+      12 + Math.random() * 40,
+      (Math.random() - 0.5) * 24
+    ));
+    const curve = new THREE.QuadraticBezierCurve3(hub, mid, end);
+    let prev = curve.getPoint(0);
+    for (let s = 1; s <= LATTICE_SEG; s++) {
+      const cur = curve.getPoint(s / LATTICE_SEG);
+      linePos.push(prev.x, prev.y, prev.z, cur.x, cur.y, cur.z);
+      prev = cur;
+    }
   });
   const lineGeo = new THREE.BufferGeometry();
   lineGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(linePos), 3));
   const latticeMat = new THREE.LineBasicMaterial({
-    color: '#6fb3ff', transparent: true, opacity: 0.07, blending: THREE.AdditiveBlending, depthWrite: false
+    color: '#6fb3ff', transparent: true, opacity: 0.06, blending: THREE.AdditiveBlending, depthWrite: false
   });
   const lattice = new THREE.LineSegments(lineGeo, latticeMat);
   scene.add(lattice);
