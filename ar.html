@@ -34,7 +34,7 @@
       border-radius: 50px; font-size: 1.1rem; font-weight: 600; cursor: pointer;
     }
 
-    /* ---- CALIBRATION (guided landmark) ---- */
+    /* ---- CALIBRATION ---- */
     #calibration-overlay {
       position: fixed; inset: 0; z-index: 10;
       display: flex; align-items: center; justify-content: center;
@@ -98,15 +98,19 @@
 
     /* ---- CONTROLS ---- */
     #ar-controls {
-      position: fixed; bottom: 1.2rem; left: 50%; transform: translateX(-50%); z-index: 5;
-      display: flex; gap: 0.6rem; pointer-events: none;
+      position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%); z-index: 5;
+      display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center;
+      max-width: 96vw; pointer-events: none;
     }
     #ar-controls button {
       pointer-events: auto; color: white; border: none;
-      padding: 0.6rem 1.1rem; border-radius: 25px; font-size: 0.8rem;
-      font-weight: 600; cursor: pointer;
+      padding: 0.55rem 0.9rem; border-radius: 25px; font-size: 0.78rem;
+      font-weight: 600; cursor: pointer; white-space: nowrap;
     }
     #recalibrate-btn { background: rgba(124,58,237,0.75); }
+    #disco-btn { background: rgba(124,58,237,0.6); }
+    #disco-btn.active { background: rgba(236,72,153,0.95); }
+    #light-btn { background: rgba(0,0,0,0.55); }
     #test-btn { background: rgba(255,68,68,0.8); }
     #test-btn.active { background: rgba(76,217,100,0.85); }
     #snap-btn { background: rgba(0,0,0,0.55); }
@@ -136,7 +140,6 @@
   </div>
 
   <div id="calibration-overlay" class="hidden">
-    <!-- STEP 1: pick a landmark -->
     <div id="cal-step1">
       <h1>Calibrate your view</h1>
       <p>Pick a landmark you can see, then point your phone at it.</p>
@@ -147,7 +150,6 @@
         <button class="cal-landmark-btn" data-landmark="canary-wharf"><span class="cal-ico">🏢</span>Canary Wharf<small>East</small></button>
       </div>
     </div>
-    <!-- STEP 2: aim & lock -->
     <div id="cal-step2" class="hidden">
       <div id="cal-vline"></div>
       <div id="cal-reticle"></div>
@@ -172,6 +174,8 @@
 
   <div id="ar-controls" class="hidden">
     <button id="recalibrate-btn">🔄 Recalibrate</button>
+    <button id="disco-btn">🪩 Disco</button>
+    <button id="light-btn">🌓 Auto</button>
     <button id="test-btn">🔧 Test Mode</button>
     <button id="snap-btn">📸 Snap</button>
   </div>
