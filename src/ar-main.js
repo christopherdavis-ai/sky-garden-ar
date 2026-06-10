@@ -5,6 +5,7 @@ import banks from './data/banks.json';
 const SKY_GARDEN = { lat: 51.511398, lng: -0.083507, alt: 155 };
 const SHARD_BEARING = 195;
 const SMOOTH_FACTOR = 0.12;
+const PARTICLES_PER_FLOW = 26;   // tune density of the network streams
 
 let compassOffset = 0;
 let calibrated = false;
@@ -14,10 +15,9 @@ let smoothedHeading = 0;
 let deviceAlpha = 0;
 let deviceBeta = 90;
 let deviceGamma = 0;
-let usingAbsolute = false;   // once an absolute (compass) reading arrives, ignore relative events
+let usingAbsolute = false;
 
-/* Landmarks for calibration — bearings computed at runtime via getBearing
-   so they stay consistent with how beams are placed. */
+/* Landmarks for calibration — bearings computed at runtime via getBearing */
 const LANDMARKS = {
   'shard':        { name: 'The Shard',    lat: 51.5045, lng: -0.0865 },
   'tower-bridge': { name: 'Tower Bridge', lat: 51.5055, lng: -0.0754 },
@@ -29,7 +29,6 @@ let calTargetBearing = 0;
 let calRunning = false;
 let calBound = false;
 
-/* signed smallest angle: positive = target is clockwise (turn right) */
 function angularDiff(target, current) {
   let d = target - current;
   while (d > 180) d -= 360;
@@ -37,14 +36,12 @@ function angularDiff(target, current) {
   return d;
 }
 
-/* Deterministic hash -> used for staggered client heights so logos don't overlap */
 const hashStr = (s) => { let h = 0; for (let i = 0; i < s.length; i++) { h = (h * 31 + s.charCodeAt(i)) | 0; } return Math.abs(h); };
 
-/* AR-scene beam height by tier (AR scene is much smaller than the map scene) */
 function arHeight(tier, name) {
-  if (tier === 'host') return 82;          // TrueLayer - hero
-  if (tier === 'star' || tier === 'bank') return 64; // stars + banks: tallest tier
-  return 30 + (hashStr(name) % 24);        // regular clients: varied 30-53
+  if (tier === 'host') return 82;
+  if (tier === 'star' || tier === 'bank') return 64;
+  return 30 + (hashStr(name) % 24);
 }
 
 function getBearing(lat1, lng1, lat2, lng2) {
@@ -102,12 +99,55 @@ function createGlowTexture() {
   return tex;
 }
 
-/* Particle sprite reuses ONE shared glow texture + tints via material.color */
-function makeParticleSprite(color, size, sharedTex) {
-  const mat = new THREE.SpriteMaterial({ map: sharedTex, color: new THREE.Color(color), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
-  const sprite = new THREE.Sprite(mat);
-  sprite.scale.set(size, size, 1);
-  return sprite;
+/* -- Animated beam shader: scrolling stripes + travelling wipe + fresnel rim -- */
+const BEAM_VERT = `
+  varying vec2 vUv;
+  varying vec3 vNormalW;
+  varying vec3 vViewDir;
+  void main() {
+    vUv = uv;
+    vec4 worldPos = modelMatrix * vec4(position, 1.0);
+    vNormalW = normalize(mat3(modelMatrix) * normal);
+    vViewDir = normalize(cameraPosition - worldPos.xyz);
+    gl_Position = projectionMatrix * viewMatrix * worldPos;
+  }
+`;
+const BEAM_FRAG = `
+  uniform float uTime;
+  uniform vec3 uColor;
+  uniform float uPhase;
+  uniform float uFade;
+  varying vec2 vUv;
+  varying vec3 vNormalW;
+  varying vec3 vViewDir;
+  void main() {
+    float grad = mix(1.0, 0.22, vUv.y);
+    float stripes = 0.5 + 0.5 * sin((vUv.y * 16.0 - uTime * 1.8 + uPhase * 6.2831) * 6.2831);
+    stripes = pow(stripes, 3.0);
+    float band = fract(uTime * 0.22 + uPhase);
+    float wipe = smoothstep(0.13, 0.0, abs(vUv.y - band));
+    float fres = pow(1.0 - abs(dot(vNormalW, vViewDir)), 2.0);
+    float intensity = grad * (0.35 + 0.5 * stripes) + wipe * 0.9 + fres * 0.55;
+    float alpha = clamp(intensity, 0.0, 1.0) * uFade;
+    gl_FragColor = vec4(uColor * (0.85 + intensity * 0.6), alpha);
+  }
+`;
+
+function makeBeamMaterial(color, phase) {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uColor: { value: new THREE.Color(color) },
+      uPhase: { value: phase },
+      uFade: { value: 1 }
+    },
+    vertexShader: BEAM_VERT,
+    fragmentShader: BEAM_FRAG,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.DoubleSide
+  });
 }
 
 function makeBadge(txt, fill, prefix = '') {
@@ -149,7 +189,7 @@ function loadLogo(logoPath, spriteMat, sprite, baseHeight) {
 function createARFlow(pointA, pointB, colorA, colorB, scene, glowTex) {
   const mid = pointA.clone().lerp(pointB, 0.5).add(new THREE.Vector3(0, 18, 0));
   const curve = new THREE.CatmullRomCurve3([pointA, mid, pointB]);
-  const count = 50;
+  const count = PARTICLES_PER_FLOW;
   const pos = new Float32Array(count * 3);
   const col = new Float32Array(count * 3);
   const c1 = new THREE.Color(colorA);
@@ -168,7 +208,7 @@ function createARFlow(pointA, pointB, colorA, colorB, scene, glowTex) {
     });
   }
   const layers = [];
-  [{ size: 2.0, opacity: 0.12 }, { size: 0.8, opacity: 0.35 }].forEach((cfg) => {
+  [{ size: 2.0, opacity: 0.14 }, { size: 0.85, opacity: 0.4 }].forEach((cfg) => {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3));
     g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(col), 3));
@@ -183,7 +223,7 @@ function createARFlow(pointA, pointB, colorA, colorB, scene, glowTex) {
   return { curve, layers, count, seeds, speed: 0.025 + Math.random() * 0.02, offset: Math.random(), bearing: 0 };
 }
 
-/* -- Quaternion-based device orientation (no gimbal lock) -- */
+/* -- Quaternion device orientation -- */
 const _zee = new THREE.Vector3(0, 0, 1);
 const _q1 = new THREE.Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5));
 
@@ -228,16 +268,15 @@ async function startCamera() {
   }
 }
 
-/* Shared reading applier - used by both event handlers */
 function applyReading(e) {
   if (e.alpha == null && e.webkitCompassHeading == null) return;
   deviceAlpha = e.alpha || 0;
   deviceBeta = e.beta != null ? e.beta : 90;
   deviceGamma = e.gamma || 0;
   if (typeof e.webkitCompassHeading === 'number') {
-    currentHeading = e.webkitCompassHeading;        // iOS Safari (true north)
+    currentHeading = e.webkitCompassHeading;
   } else if (e.alpha != null) {
-    currentHeading = (360 - e.alpha) % 360;          // Android compass
+    currentHeading = (360 - e.alpha) % 360;
   }
 }
 
@@ -248,7 +287,7 @@ function handleOrientationAbsolute(e) {
 }
 
 function handleOrientationRelative(e) {
-  if (usingAbsolute) return;        // absolute compass wins - never mix frames
+  if (usingAbsolute) return;
   applyReading(e);
 }
 
@@ -365,7 +404,6 @@ function createARScene() {
   const glowTex = createGlowTexture();
   const beamEntries = [];
   const flowEmitters = [];
-  const allSprites = [];
 
   document.getElementById('exit-fs-btn').addEventListener('click', () => exitFullscreen());
 
@@ -400,69 +438,65 @@ function createARScene() {
   const tlBearingRad = tlBearing * Math.PI / 180;
   const tlWorldPos = new THREE.Vector3(Math.sin(tlBearingRad) * tlDist, -8, -Math.cos(tlBearingRad) * tlDist);
 
-  /* -- CLIENT BEAMS -- */
-  clients.forEach((client) => {
-    const bearing = getBearing(SKY_GARDEN.lat, SKY_GARDEN.lng, client.lat, client.lng);
-    const distance = getDistance(SKY_GARDEN.lat, SKY_GARDEN.lng, client.lat, client.lng);
-    const sceneDist = scaleDistance(distance);
-    const isTL = client.name === 'TrueLayer';
-    const isStar = client.tier === 'star';
-    const h = arHeight(client.tier, client.name);
+  const nodeWorldPositions = [];   // for the static link-lattice
 
+  function buildBeam({ color, h, isTL, initials, logo, isStar, bearing, sceneDist, isBank }) {
     const group = new THREE.Group();
+    const phase = Math.random();
 
+    const beamMat = makeBeamMaterial(color, phase);
     const beam = new THREE.Mesh(
-      new THREE.CylinderGeometry(isTL ? 1 : 0.5, isTL ? 1 : 0.5, h, 12, 1, true),
-      new THREE.MeshBasicMaterial({ color: client.beamColor, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false })
+      new THREE.CylinderGeometry(isTL ? 1 : 0.6, isTL ? 1 : 0.6, h, 16, 1, true),
+      beamMat
     );
     beam.position.y = h / 2;
 
     const glow = new THREE.Mesh(
-      new THREE.CylinderGeometry(isTL ? 2 : 1, isTL ? 2 : 1, h * 1.05, 12, 1, true),
-      new THREE.MeshBasicMaterial({ color: client.beamColor, transparent: true, opacity: 0.15, blending: THREE.AdditiveBlending, depthWrite: false })
+      new THREE.CylinderGeometry(isTL ? 2 : 1.1, isTL ? 2 : 1.1, h * 1.05, 16, 1, true),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.15, blending: THREE.AdditiveBlending, depthWrite: false })
     );
     glow.position.y = h / 2;
 
     const ring = new THREE.Mesh(
-      new THREE.RingGeometry(isTL ? 2.5 : 1.2, isTL ? 4 : 2, 32),
-      new THREE.MeshBasicMaterial({ color: client.beamColor, side: THREE.DoubleSide, transparent: true, opacity: 0.7 })
+      new THREE.RingGeometry(isTL ? 2.2 : 1.1, isTL ? 3.4 : 1.9, 32),
+      new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false })
     );
     ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.2;
 
-    const badgeTex = makeBadge(client.initials, client.beamColor);
+    const badgeTex = makeBadge(initials, color);
     const spriteMat = new THREE.SpriteMaterial({ map: badgeTex, transparent: true, depthWrite: false });
     const sprite = new THREE.Sprite(spriteMat);
-    const spriteH = isTL ? 9 : (isStar ? 6 : 4.5);
+    const spriteH = isTL ? 9 : (isStar ? 6 : (isBank ? 6 : 4.5));
     sprite.scale.set(spriteH * 1.33, spriteH, 1);
     sprite.position.y = h + 3;
     sprite.userData.baseY = h + 3;
-    allSprites.push(sprite);
+    if (logo) loadLogo(logo, spriteMat, sprite, isTL ? 16 : (isStar || isBank ? 9 : 6));
 
-    if (client.logo) loadLogo(client.logo, spriteMat, sprite, isTL ? 16 : (isStar ? 9 : 6));
-
-    const particles = new THREE.Group();
-    const particleData = [];
-    const pCount = isTL ? 14 : (isStar ? 7 : 4);
-    for (let i = 0; i < pCount; i++) {
-      const size = 0.3 + Math.random() * 0.5;
-      const p = makeParticleSprite(client.beamColor, size, glowTex);
-      particleData.push({
-        mesh: p, speed: 0.008 + Math.random() * 0.012,
-        radius: 0.6 + Math.random() * 1.2, phase: Math.random() * Math.PI * 2,
-        twist: 2 + Math.random() * 3, yPos: Math.random(),
-        dir: Math.random() > 0.5 ? 1 : -1
-      });
-      particles.add(p);
-    }
-
-    group.add(beam, glow, ring, sprite, particles);
+    group.add(beam, glow, ring, sprite);
     const bearingRad = bearing * Math.PI / 180;
     group.position.set(Math.sin(bearingRad) * sceneDist, -8, -Math.cos(bearingRad) * sceneDist);
     scene.add(group);
-    beamEntries.push({ group, bearing, beam, glow, ring, sprite, particleData, isTL, h });
+    beamEntries.push({ group, bearing, beamMat, glow, ring, sprite, phase, h, isTL });
+    return group;
+  }
 
-    if (!isTL && isStar) {
+  /* -- CLIENT BEAMS + flow to TrueLayer -- */
+  clients.forEach((client) => {
+    const bearing = getBearing(SKY_GARDEN.lat, SKY_GARDEN.lng, client.lat, client.lng);
+    const sceneDist = scaleDistance(getDistance(SKY_GARDEN.lat, SKY_GARDEN.lng, client.lat, client.lng));
+    const isTL = client.name === 'TrueLayer';
+    const isStar = client.tier === 'star';
+    const h = arHeight(client.tier, client.name);
+
+    const group = buildBeam({
+      color: client.beamColor, h, isTL, initials: client.initials,
+      logo: client.logo, isStar, bearing, sceneDist, isBank: false
+    });
+
+    if (!isTL) {
       const clientWorldPos = group.position.clone();
+      nodeWorldPositions.push(clientWorldPos.clone());
       const tlFlowStart = tlWorldPos.clone().add(new THREE.Vector3(0, 15 + Math.random() * 50, 0));
       const clientFlowEnd = clientWorldPos.clone().add(new THREE.Vector3(0, 8, 0));
       const flow = createARFlow(tlFlowStart, clientFlowEnd, '#8b5cf6', '#2dd4bf', scene, glowTex);
@@ -471,49 +505,39 @@ function createARScene() {
     }
   });
 
-  /* -- BANK BEAMS -- */
+  /* -- BANK BEAMS + flow into TrueLayer -- */
   banks.forEach((bank) => {
     const bearing = getBearing(SKY_GARDEN.lat, SKY_GARDEN.lng, bank.lat, bank.lng);
-    const distance = getDistance(SKY_GARDEN.lat, SKY_GARDEN.lng, bank.lat, bank.lng);
-    const sceneDist = scaleDistance(distance);
+    const sceneDist = scaleDistance(getDistance(SKY_GARDEN.lat, SKY_GARDEN.lng, bank.lat, bank.lng));
     const h = arHeight('bank', bank.name);
-    const group = new THREE.Group();
 
-    const beam = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.6, 0.6, h, 12, 1, true),
-      new THREE.MeshBasicMaterial({ color: '#4dabff', transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false })
-    );
-    beam.position.y = h / 2;
-
-    const glow = new THREE.Mesh(
-      new THREE.CylinderGeometry(1.1, 1.1, h * 1.05, 12, 1, true),
-      new THREE.MeshBasicMaterial({ color: '#4dabff', transparent: true, opacity: 0.15, blending: THREE.AdditiveBlending, depthWrite: false })
-    );
-    glow.position.y = h / 2;
-
-    const badgeTex = makeBadge(bank.initials, '#3f7dff');
-    const spriteMat = new THREE.SpriteMaterial({ map: badgeTex, transparent: true, depthWrite: false });
-    const sprite = new THREE.Sprite(spriteMat);
-    sprite.scale.set(8, 6, 1);
-    sprite.position.y = h + 3;
-    sprite.userData.baseY = h + 3;
-    allSprites.push(sprite);
-
-    if (bank.logo) loadLogo(bank.logo, spriteMat, sprite, 8);
-
-    group.add(beam, glow, sprite);
-    const bearingRad = bearing * Math.PI / 180;
-    group.position.set(Math.sin(bearingRad) * sceneDist, -8, -Math.cos(bearingRad) * sceneDist);
-    scene.add(group);
-    beamEntries.push({ group, bearing, beam, glow, ring: null, sprite, particleData: null, isTL: false, h });
+    const group = buildBeam({
+      color: '#4dabff', h, isTL: false, initials: bank.initials,
+      logo: bank.logo, isStar: false, bearing, sceneDist, isBank: true
+    });
 
     const bankWorldPos = group.position.clone();
+    nodeWorldPositions.push(bankWorldPos.clone());
     const bankFlowStart = bankWorldPos.clone().add(new THREE.Vector3(0, 5, 0));
     const tlFlowEnd = tlWorldPos.clone().add(new THREE.Vector3(0, 15 + Math.random() * 50, 0));
     const flow = createARFlow(bankFlowStart, tlFlowEnd, '#d6ecff', '#5bb4ff', scene, glowTex);
     flow.bearing = bearing;
     flowEmitters.push(flow);
   });
+
+  /* -- STATIC LINK-LATTICE: faint web from every node to TrueLayer -- */
+  const tlHub = tlWorldPos.clone().add(new THREE.Vector3(0, 30, 0));
+  const linePos = [];
+  nodeWorldPositions.forEach((p) => {
+    linePos.push(tlHub.x, tlHub.y, tlHub.z, p.x, p.y + 8, p.z);
+  });
+  const lineGeo = new THREE.BufferGeometry();
+  lineGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(linePos), 3));
+  const latticeMat = new THREE.LineBasicMaterial({
+    color: '#6fb3ff', transparent: true, opacity: 0.07, blending: THREE.AdditiveBlending, depthWrite: false
+  });
+  const lattice = new THREE.LineSegments(lineGeo, latticeMat);
+  scene.add(lattice);
 
   const hudHeading = document.getElementById('hud-heading');
   const hudBeams = document.getElementById('hud-beams');
@@ -538,10 +562,8 @@ function createARScene() {
     const screenOrient = getScreenOrientation();
 
     getDeviceQuaternion(rawQuat, alphaRad, betaRad, gammaRad, screenOrient);
-
     if (!quatReady) { smoothQuat.copy(rawQuat); quatReady = true; }
     else { smoothQuat.slerp(rawQuat, SMOOTH_FACTOR); }
-
     camera.quaternion.copy(smoothQuat);
 
     camEuler.setFromQuaternion(smoothQuat, 'YXZ');
@@ -554,29 +576,28 @@ function createARScene() {
       if (!b.group.visible) return;
       visibleCount++;
 
-      b.beam.material.opacity = fade * (b.isTL ? 0.6 : 0.5);
-      b.glow.material.opacity = fade * 0.2;
-      b.sprite.material.opacity = fade;
-      if (b.ring) b.ring.material.opacity = fade * 0.7;
+      const ph6 = b.phase * 6.2831;
 
+      // animated shader beam
+      b.beamMat.uniforms.uTime.value = t;
+      b.beamMat.uniforms.uFade.value = fade;
+
+      // breathing glow (de-synced)
+      const breathe = 0.5 + 0.5 * Math.sin(t * 1.4 + ph6);
+      b.glow.material.opacity = fade * (0.10 + 0.10 * breathe);
+      const gp = 1 + breathe * 0.07;
+      b.glow.scale.set(gp, 1, gp);
+
+      // expanding sonar ring at base
+      const ringP = (t * 0.4 + b.phase) % 1;
+      const rs = 1 + ringP * 2.6;
+      b.ring.scale.set(rs, rs, 1);
+      b.ring.material.opacity = fade * (1 - ringP) * 0.6;
+
+      // logo billboard: counter-roll + gentle bob
+      b.sprite.material.opacity = fade;
       b.sprite.material.rotation = counterRoll;
       b.sprite.position.y = b.sprite.userData.baseY + Math.sin(t * 1.1 + i * 0.7) * 1.2;
-
-      const pulse = 1 + Math.sin(t * 1.2 + i * 0.3) * 0.05;
-      b.beam.scale.set(pulse, 1, pulse);
-      b.glow.scale.set(pulse * 1.05, 1, pulse * 1.05);
-
-      if (b.particleData) {
-        b.particleData.forEach((pd) => {
-          pd.yPos += pd.speed * pd.dir * 0.016;
-          if (pd.yPos > 1) { pd.yPos = 1; pd.dir = -1; }
-          if (pd.yPos < 0) { pd.yPos = 0; pd.dir = 1; }
-          const y = pd.yPos * b.h;
-          const angle = pd.phase + pd.twist * pd.yPos + t * 0.2;
-          pd.mesh.position.set(Math.cos(angle) * pd.radius, y, Math.sin(angle) * pd.radius);
-          pd.mesh.material.opacity = fade * (0.25 + Math.sin(t * 1.5 + pd.phase) * 0.15);
-        });
-      }
     });
 
     flowEmitters.forEach((f) => {
@@ -590,12 +611,9 @@ function createARScene() {
           const u = (i / f.count + t * f.speed * f.seeds[i].speedMult + f.offset) % 1;
           const p = f.curve.getPoint(u);
           const s = f.seeds[i];
-          const turbX = Math.sin(t * s.freqX + s.sx) * s.spread;
-          const turbY = Math.sin(t * s.freqY + s.sy) * s.spread * 0.3;
-          const turbZ = Math.cos(t * s.freqZ + s.sz) * s.spread;
-          arr[i * 3] = p.x + turbX;
-          arr[i * 3 + 1] = p.y + turbY;
-          arr[i * 3 + 2] = p.z + turbZ;
+          arr[i * 3] = p.x + Math.sin(t * s.freqX + s.sx) * s.spread;
+          arr[i * 3 + 1] = p.y + Math.sin(t * s.freqY + s.sy) * s.spread * 0.3;
+          arr[i * 3 + 2] = p.z + Math.cos(t * s.freqZ + s.sz) * s.spread;
         }
         layer.geometry.attributes.position.needsUpdate = true;
       });
