@@ -5,7 +5,10 @@ import banks from './data/banks.json';
 const SKY_GARDEN = { lat: 51.511398, lng: -0.083507, alt: 155 };
 const SHARD_BEARING = 195;
 const SMOOTH_FACTOR = 0.12;
-const PARTICLES_PER_FLOW = 26;   // tune density of the network streams
+const PARTICLES_PER_FLOW = 26;
+const BASE_FOV = 60;
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 4;
 
 let compassOffset = 0;
 let calibrated = false;
@@ -17,7 +20,6 @@ let deviceBeta = 90;
 let deviceGamma = 0;
 let usingAbsolute = false;
 
-/* Landmarks for calibration — bearings computed at runtime via getBearing */
 const LANDMARKS = {
   'shard':        { name: 'The Shard',    lat: 51.5045, lng: -0.0865 },
   'tower-bridge': { name: 'Tower Bridge', lat: 51.5055, lng: -0.0754 },
@@ -99,7 +101,6 @@ function createGlowTexture() {
   return tex;
 }
 
-/* -- Animated beam shader: scrolling stripes + travelling wipe + fresnel rim -- */
 const BEAM_VERT = `
   varying vec2 vUv;
   varying vec3 vNormalW;
@@ -223,7 +224,6 @@ function createARFlow(pointA, pointB, colorA, colorB, scene, glowTex) {
   return { curve, layers, count, seeds, speed: 0.025 + Math.random() * 0.02, offset: Math.random(), bearing: 0 };
 }
 
-/* -- Quaternion device orientation -- */
 const _zee = new THREE.Vector3(0, 0, 1);
 const _q1 = new THREE.Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5));
 
@@ -315,7 +315,6 @@ async function startOrientation() {
   }
 }
 
-/* -- Guided landmark calibration -- */
 function showCalibration() {
   document.getElementById('cal-step2').classList.add('hidden');
   document.getElementById('cal-step1').classList.remove('hidden');
@@ -392,23 +391,97 @@ function setupCalibration() {
 
 function createARScene() {
   const canvas = document.getElementById('ar-canvas');
-  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+  const video = document.getElementById('camera-feed');
+  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, preserveDrawingBuffer: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setClearColor(0x000000, 0);
 
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+  const camera = new THREE.PerspectiveCamera(BASE_FOV, window.innerWidth / window.innerHeight, 0.1, 2000);
   scene.add(new THREE.AmbientLight(0xffffff, 0.5));
 
   const glowTex = createGlowTexture();
   const beamEntries = [];
   const flowEmitters = [];
 
+  const hudMode = document.getElementById('hud-mode');
+
+  /* -- ZOOM (digital: FOV + matching video scale keeps beams locked) -- */
+  let zoom = 1;
+  function applyZoom(z) {
+    zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
+    camera.fov = 2 * Math.atan(Math.tan(BASE_FOV * Math.PI / 360) / zoom) * 180 / Math.PI;
+    camera.updateProjectionMatrix();
+    video.style.transformOrigin = 'center center';
+    video.style.transform = 'scale(' + zoom + ')';
+    if (!testMode) hudMode.textContent = zoom > 1.02 ? 'Zoom ' + zoom.toFixed(1) + 'x' : '';
+  }
+
+  function touchDist(touches) {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.hypot(dx, dy);
+  }
+  let pinchStartDist = 0;
+  let pinchStartZoom = 1;
+  let lastTapTime = 0;
+  window.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2) {
+      pinchStartDist = touchDist(e.touches);
+      pinchStartZoom = zoom;
+    }
+  }, { passive: true });
+  window.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 2 && pinchStartDist > 0) {
+      const d = touchDist(e.touches);
+      applyZoom(pinchStartZoom * (d / pinchStartDist));
+      e.preventDefault();
+    }
+  }, { passive: false });
+  window.addEventListener('touchend', (e) => {
+    if (e.touches.length < 2) pinchStartDist = 0;
+    if (e.touches.length === 0) {
+      const now = Date.now();
+      const onButton = e.target && (e.target.closest('#ar-controls') || e.target.closest('#exit-fs-btn'));
+      if (!onButton && now - lastTapTime < 300) applyZoom(1);   // double-tap resets
+      lastTapTime = now;
+    }
+  }, { passive: true });
+
+  /* -- PHOTO CAPTURE: composite camera feed + overlay, then share/download -- */
+  function capturePhoto() {
+    const gl = renderer.domElement;
+    const W = gl.width, H = gl.height;
+    const out = document.createElement('canvas');
+    out.width = W; out.height = H;
+    const ctx = out.getContext('2d');
+    const vw = video.videoWidth || W;
+    const vh = video.videoHeight || H;
+    const coverScale = Math.max(W / vw, H / vh) * zoom;   // object-fit: cover * zoom
+    const dw = vw * coverScale, dh = vh * coverScale;
+    ctx.drawImage(video, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    ctx.drawImage(gl, 0, 0, W, H);
+    out.toBlob((blob) => {
+      if (!blob) return;
+      const file = new File([blob], 'truelayer-sky-garden.jpg', { type: 'image/jpeg' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: 'TrueLayer Sky Garden AR' }).catch(() => {});
+      } else {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'truelayer-sky-garden.jpg';
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+      }
+      hudMode.textContent = '\uD83D\uDCF8 Saved!';
+      setTimeout(() => { if (!testMode && zoom <= 1.02) hudMode.textContent = ''; }, 1500);
+    }, 'image/jpeg', 0.92);
+  }
+
   document.getElementById('exit-fs-btn').addEventListener('click', () => exitFullscreen());
 
   const testBtn = document.getElementById('test-btn');
-  const hudMode = document.getElementById('hud-mode');
   testBtn.addEventListener('click', () => {
     testMode = !testMode;
     if (testMode) {
@@ -427,10 +500,7 @@ function createARScene() {
     setupCalibration();
   });
 
-  document.getElementById('snap-btn').addEventListener('click', () => {
-    hudMode.textContent = '\uD83D\uDCF8 Coming soon!';
-    setTimeout(() => { if (!testMode) hudMode.textContent = ''; }, 1500);
-  });
+  document.getElementById('snap-btn').addEventListener('click', () => capturePhoto());
 
   const tlClient = clients.find(c => c.name === 'TrueLayer');
   const tlBearing = getBearing(SKY_GARDEN.lat, SKY_GARDEN.lng, tlClient.lat, tlClient.lng);
@@ -438,7 +508,7 @@ function createARScene() {
   const tlBearingRad = tlBearing * Math.PI / 180;
   const tlWorldPos = new THREE.Vector3(Math.sin(tlBearingRad) * tlDist, -8, -Math.cos(tlBearingRad) * tlDist);
 
-  const nodeWorldPositions = [];   // for the static link-lattice
+  const nodeWorldPositions = [];
 
   function buildBeam({ color, h, isTL, initials, logo, isStar, bearing, sceneDist, isBank }) {
     const group = new THREE.Group();
@@ -481,7 +551,6 @@ function createARScene() {
     return group;
   }
 
-  /* -- CLIENT BEAMS + flow to TrueLayer -- */
   clients.forEach((client) => {
     const bearing = getBearing(SKY_GARDEN.lat, SKY_GARDEN.lng, client.lat, client.lng);
     const sceneDist = scaleDistance(getDistance(SKY_GARDEN.lat, SKY_GARDEN.lng, client.lat, client.lng));
@@ -505,7 +574,6 @@ function createARScene() {
     }
   });
 
-  /* -- BANK BEAMS + flow into TrueLayer -- */
   banks.forEach((bank) => {
     const bearing = getBearing(SKY_GARDEN.lat, SKY_GARDEN.lng, bank.lat, bank.lng);
     const sceneDist = scaleDistance(getDistance(SKY_GARDEN.lat, SKY_GARDEN.lng, bank.lat, bank.lng));
@@ -525,23 +593,20 @@ function createARScene() {
     flowEmitters.push(flow);
   });
 
- /* -- LATTICE: curved, height-varied web from every node toward TrueLayer -- */
+  /* -- LATTICE: curved, height-varied web from every node toward TrueLayer -- */
   const LATTICE_SEG = 18;
   const linePos = [];
   nodeWorldPositions.forEach((p) => {
-    // jittered hub point near TrueLayer (spread vertically, not one dot)
     const hub = tlWorldPos.clone().add(new THREE.Vector3(
       (Math.random() - 0.5) * 16,
       20 + Math.random() * 55,
       (Math.random() - 0.5) * 16
     ));
-    // jittered attach point along the node's beam (varied heights)
     const end = p.clone().add(new THREE.Vector3(
       (Math.random() - 0.5) * 4,
       10 + Math.random() * 45,
       (Math.random() - 0.5) * 4
     ));
-    // arched control point with random lift -> gentle organic curve
     const mid = hub.clone().lerp(end, 0.5).add(new THREE.Vector3(
       (Math.random() - 0.5) * 24,
       12 + Math.random() * 40,
@@ -602,23 +667,19 @@ function createARScene() {
 
       const ph6 = b.phase * 6.2831;
 
-      // animated shader beam
       b.beamMat.uniforms.uTime.value = t;
       b.beamMat.uniforms.uFade.value = fade;
 
-      // breathing glow (de-synced)
       const breathe = 0.5 + 0.5 * Math.sin(t * 1.4 + ph6);
       b.glow.material.opacity = fade * (0.10 + 0.10 * breathe);
       const gp = 1 + breathe * 0.07;
       b.glow.scale.set(gp, 1, gp);
 
-      // expanding sonar ring at base
       const ringP = (t * 0.4 + b.phase) % 1;
       const rs = 1 + ringP * 2.6;
       b.ring.scale.set(rs, rs, 1);
       b.ring.material.opacity = fade * (1 - ringP) * 0.6;
 
-      // logo billboard: counter-roll + gentle bob
       b.sprite.material.opacity = fade;
       b.sprite.material.rotation = counterRoll;
       b.sprite.position.y = b.sprite.userData.baseY + Math.sin(t * 1.1 + i * 0.7) * 1.2;
