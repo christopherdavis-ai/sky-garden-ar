@@ -444,24 +444,54 @@ function createARScene() {
     if (e.touches.length === 0) {
       const now = Date.now();
       const onButton = e.target && (e.target.closest('#ar-controls') || e.target.closest('#exit-fs-btn'));
-      if (!onButton && now - lastTapTime < 300) applyZoom(1);   // double-tap resets
+      if (!onButton && now - lastTapTime < 300) applyZoom(1);
       lastTapTime = now;
     }
   }, { passive: true });
 
-  /* -- PHOTO CAPTURE: composite camera feed + overlay, then share/download -- */
+  /* -- WATERMARK: corner logo burned into captured photos.
+        Swap WATERMARK_SRC to your party logo later (e.g. '/logos/party.png'). -- */
+  const WATERMARK_SRC = (clients.find(c => c.name === 'TrueLayer') || {}).logo || '';
+  const watermarkImg = new Image();
+  let watermarkReady = false;
+  if (WATERMARK_SRC) {
+    watermarkImg.onload = () => { watermarkReady = true; };
+    watermarkImg.src = WATERMARK_SRC;
+  }
+
+  /* -- PHOTO CAPTURE: composite camera feed + overlay + watermark, then share/download -- */
   function capturePhoto() {
     const gl = renderer.domElement;
     const W = gl.width, H = gl.height;
     const out = document.createElement('canvas');
     out.width = W; out.height = H;
     const ctx = out.getContext('2d');
+
     const vw = video.videoWidth || W;
     const vh = video.videoHeight || H;
-    const coverScale = Math.max(W / vw, H / vh) * zoom;   // object-fit: cover * zoom
+    const coverScale = Math.max(W / vw, H / vh) * zoom;
     const dw = vw * coverScale, dh = vh * coverScale;
     ctx.drawImage(video, (W - dw) / 2, (H - dh) / 2, dw, dh);
+
     ctx.drawImage(gl, 0, 0, W, H);
+
+    if (watermarkReady) {
+      const pad = Math.round(W * 0.03);
+      const cardW = Math.round(W * 0.20);
+      const innerPad = cardW * 0.12;
+      const aspect = (watermarkImg.naturalWidth / watermarkImg.naturalHeight) || 3;
+      const logoW = cardW - innerPad * 2;
+      const logoH = logoW / aspect;
+      const cardH = logoH + innerPad * 2;
+      const x = W - cardW - pad;
+      const y = H - cardH - pad;
+      ctx.fillStyle = 'rgba(255,255,255,0.92)';
+      ctx.beginPath();
+      ctx.roundRect(x, y, cardW, cardH, cardW * 0.1);
+      ctx.fill();
+      ctx.drawImage(watermarkImg, x + innerPad, y + innerPad, logoW, logoH);
+    }
+
     out.toBlob((blob) => {
       if (!blob) return;
       const file = new File([blob], 'truelayer-sky-garden.jpg', { type: 'image/jpeg' });
@@ -489,7 +519,7 @@ function createARScene() {
       testBtn.classList.add('active');
       hudMode.textContent = 'MODE: TEST (all beams)';
     } else {
-      testBtn.textContent = '🔧 Test Mode';
+      testBtn.textContent = 'Test Mode';
       testBtn.classList.remove('active');
       hudMode.textContent = '';
     }
