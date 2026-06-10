@@ -16,6 +16,27 @@ let deviceBeta = 90;
 let deviceGamma = 0;
 let usingAbsolute = false;   // once an absolute (compass) reading arrives, ignore relative events
 
+/* Landmarks for calibration — bearings computed at runtime via getBearing
+   so they stay consistent with how beams are placed. */
+const LANDMARKS = {
+  'shard':        { name: 'The Shard',    lat: 51.5045, lng: -0.0865 },
+  'tower-bridge': { name: 'Tower Bridge', lat: 51.5055, lng: -0.0754 },
+  'gherkin':      { name: 'The Gherkin',  lat: 51.5145, lng: -0.0803 },
+  'canary-wharf': { name: 'Canary Wharf', lat: 51.5049, lng: -0.0195 }
+};
+let calSelected = null;
+let calTargetBearing = 0;
+let calRunning = false;
+let calBound = false;
+
+/* signed smallest angle: positive = target is clockwise (turn right) */
+function angularDiff(target, current) {
+  let d = target - current;
+  while (d > 180) d -= 360;
+  while (d < -180) d += 360;
+  return d;
+}
+
 /* Deterministic hash -> used for staggered client heights so logos don't overlap */
 const hashStr = (s) => { let h = 0; for (let i = 0; i < s.length; i++) { h = (h * 31 + s.charCodeAt(i)) | 0; } return Math.abs(h); };
 
@@ -220,16 +241,12 @@ function applyReading(e) {
   }
 }
 
-/* Absolute (compass-referenced) event - this is the source of truth on Android.
-   The moment we get one good reading we lock onto it. */
 function handleOrientationAbsolute(e) {
   if (e.alpha == null) return;
   usingAbsolute = true;
   applyReading(e);
 }
 
-/* Relative event - only used if no absolute event is ever delivered
-   (e.g. iOS via webkitCompassHeading, or older Android). */
 function handleOrientationRelative(e) {
   if (usingAbsolute) return;        // absolute compass wins - never mix frames
   applyReading(e);
@@ -245,7 +262,6 @@ async function startOrientation() {
         try {
           const permission = await DeviceOrientationEvent.requestPermission();
           if (permission === 'granted') {
-            // iOS delivers compass heading through the standard event
             window.addEventListener('deviceorientation', handleOrientationRelative, true);
             iosOverlay.classList.add('hidden');
             resolve(true);
@@ -254,27 +270,85 @@ async function startOrientation() {
       });
     });
   } else {
-    // Android/desktop: listen to BOTH, but the absolute handler sets a flag
-    // that makes the relative handler stand down. This stops the two reference
-    // frames fighting each other (which caused the jitter / spinning beams).
     window.addEventListener('deviceorientationabsolute', handleOrientationAbsolute, true);
     window.addEventListener('deviceorientation', handleOrientationRelative, true);
     return true;
   }
 }
 
+/* -- Guided landmark calibration -- */
+function showCalibration() {
+  document.getElementById('cal-step2').classList.add('hidden');
+  document.getElementById('cal-step1').classList.remove('hidden');
+  document.getElementById('calibration-overlay').classList.remove('hidden');
+  calSelected = null;
+  document.getElementById('hud')?.classList.add('hidden');
+  document.getElementById('ar-controls')?.classList.add('hidden');
+}
+
 function setupCalibration() {
   const overlay = document.getElementById('calibration-overlay');
-  overlay.classList.remove('hidden');
-  document.getElementById('calibrate-btn').addEventListener('click', () => {
-    compassOffset = SHARD_BEARING - currentHeading;
-    calibrated = true;
-    overlay.classList.add('hidden');
-    requestFullscreen();
-    document.getElementById('hud').classList.remove('hidden');
-    document.getElementById('ar-controls').classList.remove('hidden');
-    document.getElementById('exit-fs-btn').classList.remove('hidden');
-  });
+  const step1 = document.getElementById('cal-step1');
+  const step2 = document.getElementById('cal-step2');
+  const nameEl = document.getElementById('cal-name');
+  const hintEl = document.getElementById('cal-hint');
+  const degEl = document.getElementById('cal-deg');
+  const arrowEl = document.getElementById('cal-arrow');
+  const reticle = document.getElementById('cal-reticle');
+  const lockBtn = document.getElementById('cal-lock-btn');
+
+  function calTick() {
+    if (!calSelected) { calRunning = false; return; }
+    const diff = angularDiff(calTargetBearing, currentHeading);
+    const aligned = Math.abs(diff) <= 8;
+    degEl.textContent = aligned ? '' : Math.round(Math.abs(diff)) + '\u00b0 to go';
+    if (aligned) {
+      arrowEl.textContent = '';
+      hintEl.textContent = 'On target \u2014 tap LOCK';
+      reticle.classList.add('aligned');
+      lockBtn.classList.add('ready');
+    } else {
+      reticle.classList.remove('aligned');
+      lockBtn.classList.remove('ready');
+      arrowEl.textContent = diff > 0 ? '\u25B6' : '\u25C0';
+      hintEl.textContent = diff > 0 ? 'Turn right to find it' : 'Turn left to find it';
+    }
+    requestAnimationFrame(calTick);
+  }
+
+  if (!calBound) {
+    document.querySelectorAll('.cal-landmark-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        calSelected = btn.dataset.landmark;
+        const lm = LANDMARKS[calSelected];
+        calTargetBearing = getBearing(SKY_GARDEN.lat, SKY_GARDEN.lng, lm.lat, lm.lng);
+        nameEl.textContent = lm.name;
+        hintEl.textContent = 'Find it in view';
+        step1.classList.add('hidden');
+        step2.classList.remove('hidden');
+        if (!calRunning) { calRunning = true; requestAnimationFrame(calTick); }
+      });
+    });
+    document.getElementById('cal-back-btn').addEventListener('click', () => {
+      calSelected = null;
+      step2.classList.add('hidden');
+      step1.classList.remove('hidden');
+    });
+    lockBtn.addEventListener('click', () => {
+      if (!calSelected) return;
+      compassOffset = calTargetBearing - currentHeading;
+      calibrated = true;
+      calSelected = null;
+      overlay.classList.add('hidden');
+      requestFullscreen();
+      document.getElementById('hud')?.classList.remove('hidden');
+      document.getElementById('ar-controls')?.classList.remove('hidden');
+      document.getElementById('exit-fs-btn')?.classList.remove('hidden');
+    });
+    calBound = true;
+  }
+
+  showCalibration();
 }
 
 function createARScene() {
@@ -304,16 +378,15 @@ function createARScene() {
       testBtn.classList.add('active');
       hudMode.textContent = 'MODE: TEST (all beams)';
     } else {
-      testBtn.textContent = 'Test Mode';
+      testBtn.textContent = '🔧 Test Mode';
       testBtn.classList.remove('active');
       hudMode.textContent = '';
     }
   });
 
   document.getElementById('recalibrate-btn').addEventListener('click', () => {
-    compassOffset = SHARD_BEARING - currentHeading;
-    hudMode.textContent = 'Recalibrated \u2713';
-    setTimeout(() => { if (!testMode) hudMode.textContent = ''; }, 1500);
+    calibrated = false;
+    setupCalibration();
   });
 
   document.getElementById('snap-btn').addEventListener('click', () => {
@@ -362,12 +435,11 @@ function createARScene() {
     const spriteH = isTL ? 9 : (isStar ? 6 : 4.5);
     sprite.scale.set(spriteH * 1.33, spriteH, 1);
     sprite.position.y = h + 3;
-    sprite.userData.baseY = h + 3;        // remember resting height for bobbing
+    sprite.userData.baseY = h + 3;
     allSprites.push(sprite);
 
     if (client.logo) loadLogo(client.logo, spriteMat, sprite, isTL ? 16 : (isStar ? 9 : 6));
 
-    /* Orbiting particles (shared glow texture) */
     const particles = new THREE.Group();
     const particleData = [];
     const pCount = isTL ? 14 : (isStar ? 7 : 4);
@@ -389,7 +461,6 @@ function createARScene() {
     scene.add(group);
     beamEntries.push({ group, bearing, beam, glow, ring, sprite, particleData, isTL, h });
 
-    /* Flow: TrueLayer -> star clients only (perf) */
     if (!isTL && isStar) {
       const clientWorldPos = group.position.clone();
       const tlFlowStart = tlWorldPos.clone().add(new THREE.Vector3(0, 15 + Math.random() * 50, 0));
@@ -400,7 +471,7 @@ function createARScene() {
     }
   });
 
-  /* -- BANK BEAMS (tall tier, with logos) -- */
+  /* -- BANK BEAMS -- */
   banks.forEach((bank) => {
     const bearing = getBearing(SKY_GARDEN.lat, SKY_GARDEN.lng, bank.lat, bank.lng);
     const distance = getDistance(SKY_GARDEN.lat, SKY_GARDEN.lng, bank.lat, bank.lng);
@@ -447,7 +518,6 @@ function createARScene() {
   const hudHeading = document.getElementById('hud-heading');
   const hudBeams = document.getElementById('hud-beams');
 
-  /* -- Quaternion SLERP smoothing -- */
   const rawQuat = new THREE.Quaternion();
   const smoothQuat = new THREE.Quaternion();
   let quatReady = false;
@@ -489,9 +559,7 @@ function createARScene() {
       b.sprite.material.opacity = fade;
       if (b.ring) b.ring.material.opacity = fade * 0.7;
 
-      // keep logo upright regardless of camera roll
       b.sprite.material.rotation = counterRoll;
-      // gentle bobbing
       b.sprite.position.y = b.sprite.userData.baseY + Math.sin(t * 1.1 + i * 0.7) * 1.2;
 
       const pulse = 1 + Math.sin(t * 1.2 + i * 0.3) * 0.05;
@@ -511,7 +579,6 @@ function createARScene() {
       }
     });
 
-    /* Flows: only update when their beam is in view (perf) */
     flowEmitters.forEach((f) => {
       const fade = getHemisphereFade(f.bearing, adjustedHeading);
       const vis = fade > 0.01;
@@ -535,8 +602,7 @@ function createARScene() {
     });
 
     hudHeading.textContent = 'Heading: ' + adjustedHeading.toFixed(0) + String.fromCharCode(176) +
-      (usingAbsolute ? ' [abs]' : ' [rel]') +
-      '  \u03b1' + deviceAlpha.toFixed(0) + ' \u03b2' + deviceBeta.toFixed(0) + ' \u03b3' + deviceGamma.toFixed(0);
+      (usingAbsolute ? ' [abs]' : ' [rel]');
     hudBeams.textContent = 'Beams visible: ' + visibleCount;
     renderer.render(scene, camera);
   }
