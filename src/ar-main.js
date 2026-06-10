@@ -118,6 +118,7 @@ const BEAM_FRAG = `
   uniform vec3 uColor;
   uniform float uPhase;
   uniform float uFade;
+  uniform float uDay;
   varying vec2 vUv;
   varying vec3 vNormalW;
   varying vec3 vViewDir;
@@ -128,9 +129,18 @@ const BEAM_FRAG = `
     float band = fract(uTime * 0.22 + uPhase);
     float wipe = smoothstep(0.13, 0.0, abs(vUv.y - band));
     float fres = pow(1.0 - abs(dot(vNormalW, vViewDir)), 2.0);
-    float intensity = grad * (0.35 + 0.5 * stripes) + wipe * 0.9 + fres * 0.55;
-    float alpha = clamp(intensity, 0.0, 1.0) * uFade;
-    gl_FragColor = vec4(uColor * (0.85 + intensity * 0.6), alpha);
+    if (uDay > 0.5) {
+      // DAY: solid, opaque, readable against a bright sky (normal blending)
+      float a = clamp(0.6 + 0.35 * stripes + wipe * 0.4, 0.0, 1.0) * uFade;
+      vec3 c = uColor * (0.65 + 0.3 * stripes);
+      c *= mix(1.0, 0.5, fres);            // darken rim for edge contrast
+      gl_FragColor = vec4(c, a);
+    } else {
+      // NIGHT: additive neon glow
+      float intensity = grad * (0.35 + 0.5 * stripes) + wipe * 0.9 + fres * 0.55;
+      float a = clamp(intensity, 0.0, 1.0) * uFade;
+      gl_FragColor = vec4(uColor * (0.85 + intensity * 0.6), a);
+    }
   }
 `;
 
@@ -140,7 +150,8 @@ function makeBeamMaterial(color, phase) {
       uTime: { value: 0 },
       uColor: { value: new THREE.Color(color) },
       uPhase: { value: phase },
-      uFade: { value: 1 }
+      uFade: { value: 1 },
+      uDay: { value: 0 }
     },
     vertexShader: BEAM_VERT,
     fragmentShader: BEAM_FRAG,
@@ -209,6 +220,7 @@ function createARFlow(pointA, pointB, colorA, colorB, scene, glowTex) {
     });
   }
   const layers = [];
+  // layers[0] = soft halo, layers[1] = bright core
   [{ size: 2.0, opacity: 0.14 }, { size: 0.85, opacity: 0.4 }].forEach((cfg) => {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3));
@@ -407,6 +419,57 @@ function createARScene() {
 
   const hudMode = document.getElementById('hud-mode');
 
+  /* -- RENDER MODES: day/night (auto from camera brightness) + disco -- */
+  let dayMode = false;
+  let lightMode = 'auto';   // 'auto' | 'day' | 'night'
+  let discoMode = false;
+  let latticeMat = null;
+
+  function applyRenderMode() {
+    const add = THREE.AdditiveBlending, norm = THREE.NormalBlending;
+    beamEntries.forEach((b) => {
+      b.beamMat.uniforms.uDay.value = dayMode ? 1 : 0;
+      b.beamMat.blending = dayMode ? norm : add;
+      b.glow.visible = !dayMode;                       // glow halo is night-only
+      b.ring.material.blending = dayMode ? norm : add;
+    });
+    flowEmitters.forEach((f) => {
+      f.layers[0].material.blending = dayMode ? norm : add;
+      f.layers[1].material.blending = dayMode ? norm : add;
+      f.layers[0].material.opacity = dayMode ? 0.0 : 0.14;   // hide soft halo by day
+      f.layers[1].material.opacity = dayMode ? 0.95 : 0.4;   // opaque cores by day
+    });
+    if (latticeMat) {
+      latticeMat.blending = dayMode ? norm : add;
+      latticeMat.opacity = dayMode ? 0.18 : 0.06;
+      latticeMat.color.set(dayMode ? '#2b6fd6' : '#6fb3ff');
+    }
+  }
+
+  // brightness sampler (auto day/night)
+  const sampleCanvas = document.createElement('canvas');
+  sampleCanvas.width = 16; sampleCanvas.height = 16;
+  const sampleCtx = sampleCanvas.getContext('2d', { willReadFrequently: true });
+  function sampleBrightness() {
+    if (!video.videoWidth) return null;
+    try {
+      sampleCtx.drawImage(video, 0, 0, 16, 16);
+      const data = sampleCtx.getImageData(0, 0, 16, 16).data;
+      let sum = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        sum += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+      }
+      return (sum / (data.length / 4)) / 255;
+    } catch (e) { return null; }
+  }
+  setInterval(() => {
+    if (lightMode !== 'auto') return;
+    const b = sampleBrightness();
+    if (b == null) return;
+    const wantDay = dayMode ? b > 0.45 : b > 0.55;   // hysteresis to avoid flicker
+    if (wantDay !== dayMode) { dayMode = wantDay; applyRenderMode(); }
+  }, 1500);
+
   /* -- ZOOM (digital: FOV + matching video scale keeps beams locked) -- */
   let zoom = 1;
   function applyZoom(z) {
@@ -519,10 +582,27 @@ function createARScene() {
       testBtn.classList.add('active');
       hudMode.textContent = 'MODE: TEST (all beams)';
     } else {
-      testBtn.textContent = 'Test Mode';
+      testBtn.textContent = '🔧 Test Mode';
       testBtn.classList.remove('active');
       hudMode.textContent = '';
     }
+  });
+
+  const discoBtn = document.getElementById('disco-btn');
+  discoBtn.addEventListener('click', () => {
+    discoMode = !discoMode;
+    discoBtn.classList.toggle('active', discoMode);
+    if (!discoMode) {
+      beamEntries.forEach((b) => b.beamMat.uniforms.uColor.value.copy(b.baseColor));
+    }
+  });
+
+  const lightBtn = document.getElementById('light-btn');
+  lightBtn.addEventListener('click', () => {
+    if (lightMode === 'auto') { lightMode = 'day'; dayMode = true; lightBtn.textContent = '☀️ Day'; }
+    else if (lightMode === 'day') { lightMode = 'night'; dayMode = false; lightBtn.textContent = '🌙 Night'; }
+    else { lightMode = 'auto'; lightBtn.textContent = '🌓 Auto'; }
+    applyRenderMode();
   });
 
   document.getElementById('recalibrate-btn').addEventListener('click', () => {
@@ -577,7 +657,7 @@ function createARScene() {
     const bearingRad = bearing * Math.PI / 180;
     group.position.set(Math.sin(bearingRad) * sceneDist, -8, -Math.cos(bearingRad) * sceneDist);
     scene.add(group);
-    beamEntries.push({ group, bearing, beamMat, glow, ring, sprite, phase, h, isTL });
+    beamEntries.push({ group, bearing, beamMat, glow, ring, sprite, phase, h, isTL, baseColor: new THREE.Color(color) });
     return group;
   }
 
@@ -652,11 +732,13 @@ function createARScene() {
   });
   const lineGeo = new THREE.BufferGeometry();
   lineGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(linePos), 3));
-  const latticeMat = new THREE.LineBasicMaterial({
+  latticeMat = new THREE.LineBasicMaterial({
     color: '#6fb3ff', transparent: true, opacity: 0.06, blending: THREE.AdditiveBlending, depthWrite: false
   });
   const lattice = new THREE.LineSegments(lineGeo, latticeMat);
   scene.add(lattice);
+
+  applyRenderMode();   // initialise materials for the current (night) mode
 
   const hudHeading = document.getElementById('hud-heading');
   const hudBeams = document.getElementById('hud-beams');
@@ -697,6 +779,11 @@ function createARScene() {
 
       const ph6 = b.phase * 6.2831;
 
+      if (discoMode) {
+        const hue = (t * 0.15 + b.phase) % 1;
+        b.beamMat.uniforms.uColor.value.setHSL(hue, 1.0, 0.55);
+      }
+
       b.beamMat.uniforms.uTime.value = t;
       b.beamMat.uniforms.uFade.value = fade;
 
@@ -708,7 +795,7 @@ function createARScene() {
       const ringP = (t * 0.4 + b.phase) % 1;
       const rs = 1 + ringP * 2.6;
       b.ring.scale.set(rs, rs, 1);
-      b.ring.material.opacity = fade * (1 - ringP) * 0.6;
+      b.ring.material.opacity = fade * (1 - ringP) * (dayMode ? 0.4 : 0.6);
 
       b.sprite.material.opacity = fade;
       b.sprite.material.rotation = counterRoll;
@@ -718,7 +805,7 @@ function createARScene() {
     flowEmitters.forEach((f) => {
       const fade = getHemisphereFade(f.bearing, adjustedHeading);
       const vis = fade > 0.01;
-      f.layers.forEach((layer) => { layer.visible = vis; });
+      f.layers.forEach((layer) => { layer.visible = vis && (layer.material.opacity > 0.001); });
       if (!vis) return;
       f.layers.forEach((layer) => {
         const arr = layer.geometry.attributes.position.array;
@@ -735,7 +822,7 @@ function createARScene() {
     });
 
     hudHeading.textContent = 'Heading: ' + adjustedHeading.toFixed(0) + String.fromCharCode(176) +
-      (usingAbsolute ? ' [abs]' : ' [rel]');
+      (usingAbsolute ? ' [abs]' : ' [rel]') + (dayMode ? ' \u2600' : ' \u263e');
     hudBeams.textContent = 'Beams visible: ' + visibleCount;
     renderer.render(scene, camera);
   }
