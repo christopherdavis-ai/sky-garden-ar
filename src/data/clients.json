@@ -7,7 +7,7 @@
     "initials": "TL",
     "height": 300,
     "tier": "host",
-    "logo": "/logos/TrueLayer.png"
+    "logo": "/logos/truelayer.png"
   },
   {
     "name": "Amazon",
@@ -160,26 +160,6 @@
     "logo": "/logos/willaimhill_client.png"
   },
   {
-    "name": "118118 Money",
-    "lat": 51.513198,
-    "lng": -0.10188,
-    "beamColor": "#A78BFA",
-    "initials": "118",
-    "height": 130,
-    "tier": "client",
-    "logo": "/logos/118.png"
-  },
-  {
-    "name": "BCRemit",
-    "lat": 51.48742,
-    "lng": -0.31835,
-    "beamColor": "#1D9BF0",
-    "initials": "BC",
-    "height": 190,
-    "tier": "client",
-    "logo": "/logos/bcremit.png"
-  },
-  {
     "name": "Betsson",
     "lat": 51.4613,
     "lng": -0.1156,
@@ -208,36 +188,6 @@
     "height": 116,
     "tier": "client",
     "logo": "/logos/bridge.png"
-  },
-  {
-    "name": "BullionVault",
-    "lat": 51.4906,
-    "lng": -0.22268,
-    "beamColor": "#C9A227",
-    "initials": "BV",
-    "height": 176,
-    "tier": "client",
-    "logo": "/logos/bullionvault.png"
-  },
-  {
-    "name": "Capital.com",
-    "lat": 51.49961,
-    "lng": -0.13504,
-    "beamColor": "#0A53BE",
-    "initials": "CP",
-    "height": 236,
-    "tier": "client",
-    "logo": "/logos/capital.png"
-  },
-  {
-    "name": "Capium",
-    "lat": 51.52259,
-    "lng": -0.08268,
-    "beamColor": "#2DA5DF",
-    "initials": "CA",
-    "height": 146,
-    "tier": "client",
-    "logo": "/logos/capium.png"
   },
   {
     "name": "Carmoola",
@@ -320,16 +270,6 @@
     "logo": "/logos/creditladder.png"
   },
   {
-    "name": "Crunch",
-    "lat": 51.52259,
-    "lng": -0.08268,
-    "beamColor": "#FF6F61",
-    "initials": "CR",
-    "height": 196,
-    "tier": "client",
-    "logo": "/logos/crunch.png"
-  },
-  {
     "name": "Curve",
     "lat": 51.51651,
     "lng": -0.17667,
@@ -338,16 +278,6 @@
     "height": 118,
     "tier": "client",
     "logo": "/logos/curve.png"
-  },
-  {
-    "name": "DirekTek",
-    "lat": 51.62864,
-    "lng": -0.74811,
-    "beamColor": "#E11D48",
-    "initials": "DT",
-    "height": 170,
-    "tier": "client",
-    "logo": "/logos/direktek.png"
   },
   {
     "name": "Easol",
@@ -368,16 +298,6 @@
     "height": 130,
     "tier": "client",
     "logo": "/logos/ember.png"
-  },
-  {
-    "name": "Esenda",
-    "lat": 51.5857,
-    "lng": -0.58027,
-    "beamColor": "#F59E0B",
-    "initials": "ES",
-    "height": 190,
-    "tier": "client",
-    "logo": "/logos/esenda.png"
   },
   {
     "name": "EverUp",
@@ -430,16 +350,6 @@
     "logo": "/logos/flexearn.png"
   },
   {
-    "name": "ForMore",
-    "lat": 51.51858,
-    "lng": -0.1428,
-    "beamColor": "#F43F5E",
-    "initials": "FO",
-    "height": 146,
-    "tier": "client",
-    "logo": "/logos/formore.png"
-  },
-  {
     "name": "Freetrade",
     "lat": 51.52188,
     "lng": -0.07178,
@@ -458,16 +368,6 @@
     "height": 160,
     "tier": "client",
     "logo": "/logos/fundingcircle.png"
-  },
-  {
-    "name": "Fuse Energy",
-    "lat": 51.50476,
-    "lng": -0.01789,
-    "beamColor": "#1F2937",
-    "initials": "FU",
-    "height": 200,
-    "tier": "client",
-    "logo": "/logos/fuse.png"
   },
   {
     "name": "GC Partners",
@@ -500,16 +400,6 @@
     "logo": "/logos/gohenry.png"
   },
   {
-    "name": "GPS Money",
-    "lat": 51.51412,
-    "lng": -0.11967,
-    "beamColor": "#2563EB",
-    "initials": "GP",
-    "height": 224,
-    "tier": "client",
-    "logo": "/logos/gps.png"
-  },
-  {
     "name": "Hokodo",
     "lat": 51.525985,
     "lng": -0.082996,
@@ -538,26 +428,6 @@
     "height": 118,
     "tier": "client",
     "logo": "/logos/incard.png"
-  },
-  {
-    "name": "InvestEngine",
-    "lat": 51.50402,
-    "lng": -0.10016,
-    "beamColor": "#00B3A4",
-    "initials": "IE",
-    "height": 170,
-    "tier": "client",
-    "logo": "/logos/investengine.png"
-  },
-  {
-    "name": "iwoca",
-    "lat": 51.51175,
-    "lng": -0.09765,
-    "beamColor": "#FFCC00",
-    "initials": "IW",
-    "height": 232,
-    "tier": "client",
-    "logo": "/logos/iwoca.png"
   },
   {
     "name": "jaja",
@@ -590,26 +460,6 @@
     "logo": "/logos/keyzy.png"
   },
   {
-    "name": "Killik",
-    "lat": 51.51149,
-    "lng": -0.1439,
-    "beamColor": "#1A3F6B",
-    "initials": "KI",
-    "height": 220,
-    "tier": "client",
-    "logo": "/logos/killik.png"
-  },
-  {
-    "name": "Konfir",
-    "lat": 51.50891,
-    "lng": -0.09241,
-    "beamColor": "#0EA5E9",
-    "initials": "KO",
-    "height": 116,
-    "tier": "client",
-    "logo": "/logos/konfir.png"
-  },
-  {
     "name": "Ladbrokes",
     "lat": 51.53787,
     "lng": -0.01352,
@@ -628,16 +478,6 @@
     "height": 236,
     "tier": "client",
     "logo": "/logos/legl.png"
-  },
-  {
-    "name": "Lemfi",
-    "lat": 51.53479,
-    "lng": -0.12155,
-    "beamColor": "#14B8A6",
-    "initials": "LF",
-    "height": 146,
-    "tier": "client",
-    "logo": "/logos/lemfi.png"
   },
   {
     "name": "Lendable",
@@ -660,16 +500,6 @@
     "logo": "/logos/lendwise.png"
   },
   {
-    "name": "lenkie.com",
-    "lat": 51.50619,
-    "lng": -0.01432,
-    "beamColor": "#4F46E5",
-    "initials": "LK",
-    "height": 200,
-    "tier": "client",
-    "logo": "/logos/lenkie.png"
-  },
-  {
     "name": "Liberis",
     "lat": 51.51038,
     "lng": -0.22733,
@@ -688,16 +518,6 @@
     "height": 184,
     "tier": "client",
     "logo": "/logos/lightyear.png"
-  },
-  {
-    "name": "Lopay",
-    "lat": 51.53532,
-    "lng": -0.09913,
-    "beamColor": "#22D3EE",
-    "initials": "LP",
-    "height": 154,
-    "tier": "client",
-    "logo": "/logos/lopay.png"
   },
   {
     "name": "MoneySuperMarket",
@@ -730,46 +550,6 @@
     "logo": "/logos/moniepoint.png"
   },
   {
-    "name": "Muse Corporation",
-    "lat": 50.82935,
-    "lng": -0.16282,
-    "beamColor": "#EC4899",
-    "initials": "MU",
-    "height": 118,
-    "tier": "client",
-    "logo": "/logos/muse.png"
-  },
-  {
-    "name": "Nestegg",
-    "lat": 51.52608,
-    "lng": -0.12319,
-    "beamColor": "#F59E0B",
-    "initials": "NE",
-    "height": 170,
-    "tier": "client",
-    "logo": "/logos/nestegg.png"
-  },
-  {
-    "name": "Nexdi",
-    "lat": 51.51226,
-    "lng": -0.08274,
-    "beamColor": "#0EA5E9",
-    "initials": "NX",
-    "height": 232,
-    "tier": "client",
-    "logo": "/logos/nexdi.png"
-  },
-  {
-    "name": "Nomi",
-    "lat": 51.57892,
-    "lng": -0.33793,
-    "beamColor": "#8B5CF6",
-    "initials": "NM",
-    "height": 130,
-    "tier": "client",
-    "logo": "/logos/nomi.png"
-  },
-  {
     "name": "Nova Money",
     "lat": 51.53532,
     "lng": -0.09913,
@@ -790,66 +570,6 @@
     "logo": "/logos/nuvei.png"
   },
   {
-    "name": "OakNorth",
-    "lat": 51.51411,
-    "lng": -0.13534,
-    "beamColor": "#00B0B9",
-    "initials": "ON",
-    "height": 220,
-    "tier": "client",
-    "logo": "/logos/oaknorth.png"
-  },
-  {
-    "name": "Oasis Living",
-    "lat": 51.52697,
-    "lng": -0.09254,
-    "beamColor": "#38BDF8",
-    "initials": "OL",
-    "height": 116,
-    "tier": "client",
-    "logo": "/logos/oasisliving.png"
-  },
-  {
-    "name": "Octopus Investments",
-    "lat": 51.51987,
-    "lng": -0.10902,
-    "beamColor": "#FF0087",
-    "initials": "OC",
-    "height": 176,
-    "tier": "client",
-    "logo": "/logos/octopusinvestments.png"
-  },
-  {
-    "name": "Oliver Sweeney",
-    "lat": 51.55847,
-    "lng": -0.14569,
-    "beamColor": "#8B5E3C",
-    "initials": "OS",
-    "height": 236,
-    "tier": "client",
-    "logo": "/logos/oliversweeney.png"
-  },
-  {
-    "name": "Oluno",
-    "lat": 51.4625,
-    "lng": -0.138,
-    "beamColor": "#6366F1",
-    "initials": "OU",
-    "height": 146,
-    "tier": "client",
-    "logo": "/logos/oluno.png"
-  },
-  {
-    "name": "OlyBet",
-    "lat": 51.5905,
-    "lng": -0.0195,
-    "beamColor": "#E2001A",
-    "initials": "OB",
-    "height": 206,
-    "tier": "client",
-    "logo": "/logos/olybet.png"
-  },
-  {
     "name": "OnerWay",
     "lat": 51.51331,
     "lng": -0.08119,
@@ -868,16 +588,6 @@
     "height": 200,
     "tier": "client",
     "logo": "/logos/openrent.png"
-  },
-  {
-    "name": "Outfund",
-    "lat": 51.51225,
-    "lng": -0.12282,
-    "beamColor": "#7C3AED",
-    "initials": "OF",
-    "height": 124,
-    "tier": "client",
-    "logo": "/logos/outfund.png"
   },
   {
     "name": "Overwolf",
@@ -908,16 +618,6 @@
     "height": 224,
     "tier": "client",
     "logo": "/logos/pave.png"
-  },
-  {
-    "name": "PayProp",
-    "lat": 51.52113,
-    "lng": -0.10802,
-    "beamColor": "#2563EB",
-    "initials": "PP",
-    "height": 136,
-    "tier": "client",
-    "logo": "/logos/payprop.png"
   },
   {
     "name": "Paysafe",
@@ -1010,16 +710,6 @@
     "logo": "/logos/recognisebank.png"
   },
   {
-    "name": "RentProfile",
-    "lat": 51.53129,
-    "lng": -0.07364,
-    "beamColor": "#10B981",
-    "initials": "RT",
-    "height": 176,
-    "tier": "client",
-    "logo": "/logos/rentprofile.png"
-  },
-  {
     "name": "STERLING FX",
     "lat": 51.5189,
     "lng": -0.15779,
@@ -1028,16 +718,6 @@
     "height": 236,
     "tier": "client",
     "logo": "/logos/sterling.png"
-  },
-  {
-    "name": "Sidekick Money",
-    "lat": 51.52447,
-    "lng": -0.08257,
-    "beamColor": "#6366F1",
-    "initials": "SD",
-    "height": 146,
-    "tier": "client",
-    "logo": "/logos/sidekick.png"
   },
   {
     "name": "SlideBy",
@@ -1080,16 +760,6 @@
     "logo": "/logos/sprive.png"
   },
   {
-    "name": "StuRents",
-    "lat": 51.50267,
-    "lng": -0.10022,
-    "beamColor": "#F97316",
-    "initials": "SR",
-    "height": 184,
-    "tier": "client",
-    "logo": "/logos/sturents.png"
-  },
-  {
     "name": "Subtv",
     "lat": 51.49009,
     "lng": -0.10927,
@@ -1108,16 +778,6 @@
     "height": 224,
     "tier": "client",
     "logo": "/logos/superfi.png"
-  },
-  {
-    "name": "Swifty",
-    "lat": 51.51225,
-    "lng": -0.12282,
-    "beamColor": "#F59E0B",
-    "initials": "SW",
-    "height": 136,
-    "tier": "client",
-    "logo": "/logos/swifty.png"
   },
   {
     "name": "Taxfix",
@@ -1140,46 +800,6 @@
     "logo": "/logos/temu.png"
   },
   {
-    "name": "Tendr",
-    "lat": 51.52083,
-    "lng": -0.10733,
-    "beamColor": "#EC4899",
-    "initials": "TD",
-    "height": 170,
-    "tier": "client",
-    "logo": "/logos/tendr.png"
-  },
-  {
-    "name": "The Money Platform",
-    "lat": 51.51116,
-    "lng": -0.09346,
-    "beamColor": "#7C3AED",
-    "initials": "TMP",
-    "height": 232,
-    "tier": "client",
-    "logo": "/logos/themoneyplatform.png"
-  },
-  {
-    "name": "Thirdfort",
-    "lat": 51.49545,
-    "lng": -0.14281,
-    "beamColor": "#4F46E5",
-    "initials": "TF",
-    "height": 130,
-    "tier": "client",
-    "logo": "/logos/thirdfort.png"
-  },
-  {
-    "name": "TradeBridge",
-    "lat": 51.51862,
-    "lng": -0.12406,
-    "beamColor": "#0EA5E9",
-    "initials": "TB",
-    "height": 190,
-    "tier": "client",
-    "logo": "/logos/tradebridge.png"
-  },
-  {
     "name": "UNIPaaS",
     "lat": 51.51928,
     "lng": -0.14261,
@@ -1198,16 +818,6 @@
     "height": 220,
     "tier": "client",
     "logo": "/logos/unbolted.png"
-  },
-  {
-    "name": "Updraft",
-    "lat": 51.53532,
-    "lng": -0.09913,
-    "beamColor": "#10B981",
-    "initials": "UD",
-    "height": 116,
-    "tier": "client",
-    "logo": "/logos/updraft.png"
   },
   {
     "name": "Wealthyhood",
@@ -1250,16 +860,6 @@
     "logo": "/logos/wombat.png"
   },
   {
-    "name": "Workspace Group",
-    "lat": 51.53214,
-    "lng": -0.14042,
-    "beamColor": "#E11D48",
-    "initials": "WS",
-    "height": 160,
-    "tier": "client",
-    "logo": "/logos/workspace.png"
-  },
-  {
     "name": "Worldline",
     "lat": 51.51895,
     "lng": -0.118418,
@@ -1268,16 +868,6 @@
     "height": 200,
     "tier": "client",
     "logo": "/logos/worldline.png"
-  },
-  {
-    "name": "YesRef",
-    "lat": 51.51888,
-    "lng": -0.14299,
-    "beamColor": "#2563EB",
-    "initials": "YR",
-    "height": 124,
-    "tier": "client",
-    "logo": "/logos/yesref.png"
   },
   {
     "name": "Remitly",
@@ -1297,6 +887,6 @@
     "initials": "MQ",
     "height": 154,
     "tier": "client",
-    "logo": "/logos/MrQ.png"
+    "logo": "/logos/mrq.png"
   }
 ]
