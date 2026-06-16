@@ -5,10 +5,19 @@ import banks from './data/banks.json';
 const SKY_GARDEN = { lat: 51.511398, lng: -0.083507, alt: 155 };
 const SHARD_BEARING = 195;
 const SMOOTH_FACTOR = 0.12;
-const PARTICLES_PER_FLOW = 26;
 const BASE_FOV = 60;
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 4;
+
+// Particle-flow density by tier (more particles = more apparent payment volume).
+// Star clients and banks read as high-volume; regular clients are lighter.
+const FLOW_PARTICLES_STAR = 26;
+const FLOW_PARTICLES_BANK = 26;   // <- set to 8 if you want banks lighter like regular clients
+const FLOW_PARTICLES_CLIENT = 8;
+
+// Branded photo frame text (easy to edit / swap for the party later)
+const FRAME_TITLE = 'TrueLayer \u00b7 Sky Garden';
+const FRAME_SUBTITLE = '';   // e.g. 'Summer Party 2026'
 
 let compassOffset = 0;
 let calibrated = false;
@@ -198,10 +207,9 @@ function loadLogo(logoPath, spriteMat, sprite, baseHeight) {
   }, undefined, () => {});
 }
 
-function createARFlow(pointA, pointB, colorA, colorB, scene, glowTex) {
+function createARFlow(pointA, pointB, colorA, colorB, scene, glowTex, count) {
   const mid = pointA.clone().lerp(pointB, 0.5).add(new THREE.Vector3(0, 18, 0));
   const curve = new THREE.CatmullRomCurve3([pointA, mid, pointB]);
-  const count = PARTICLES_PER_FLOW;
   const pos = new Float32Array(count * 3);
   const col = new Float32Array(count * 3);
   const c1 = new THREE.Color(colorA);
@@ -512,6 +520,57 @@ function createARScene() {
     }
   }, { passive: true });
 
+  /* -- CONFETTI: on-screen celebration after a Snap (not baked into the photo) -- */
+  const confettiCanvas = document.createElement('canvas');
+  confettiCanvas.style.cssText = 'position:fixed;inset:0;z-index:4;pointer-events:none;';
+  document.body.appendChild(confettiCanvas);
+  const confettiCtx = confettiCanvas.getContext('2d');
+  let confettiParticles = [];
+  let confettiRunning = false;
+  const CONFETTI_COLORS = ['#7C3AED', '#2dd4bf', '#ec4899', '#ffffff', '#5bb4ff', '#f59e0b'];
+  function sizeConfetti() {
+    const dpr = Math.min(window.devicePixelRatio, 2);
+    confettiCanvas.width = window.innerWidth * dpr;
+    confettiCanvas.height = window.innerHeight * dpr;
+    confettiCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  sizeConfetti();
+  function fireConfetti() {
+    const Wd = window.innerWidth, Hd = window.innerHeight;
+    for (let i = 0; i < 130; i++) {
+      const ang = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 1.15;  // upward fan
+      const spd = 7 + Math.random() * 11;
+      confettiParticles.push({
+        x: Wd * 0.5, y: Hd * 0.6,
+        vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd,
+        w: 6 + Math.random() * 7, h: 8 + Math.random() * 9,
+        rot: Math.random() * Math.PI, vrot: (Math.random() - 0.5) * 0.45,
+        color: CONFETTI_COLORS[(Math.random() * CONFETTI_COLORS.length) | 0],
+        life: 70 + Math.random() * 45
+      });
+    }
+    if (!confettiRunning) { confettiRunning = true; requestAnimationFrame(confettiTick); }
+  }
+  function confettiTick() {
+    const Wd = window.innerWidth, Hd = window.innerHeight;
+    confettiCtx.clearRect(0, 0, Wd, Hd);
+    for (let i = confettiParticles.length - 1; i >= 0; i--) {
+      const p = confettiParticles[i];
+      p.vy += 0.3; p.vx *= 0.99;
+      p.x += p.vx; p.y += p.vy; p.rot += p.vrot; p.life--;
+      if (p.life <= 0 || p.y > Hd + 40) { confettiParticles.splice(i, 1); continue; }
+      confettiCtx.save();
+      confettiCtx.translate(p.x, p.y);
+      confettiCtx.rotate(p.rot);
+      confettiCtx.globalAlpha = Math.min(1, p.life / 30);
+      confettiCtx.fillStyle = p.color;
+      confettiCtx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      confettiCtx.restore();
+    }
+    if (confettiParticles.length > 0) { requestAnimationFrame(confettiTick); }
+    else { confettiCtx.clearRect(0, 0, Wd, Hd); confettiRunning = false; }
+  }
+
   /* -- WATERMARK: corner logo burned into captured photos.
         Swap WATERMARK_SRC to your party logo later (e.g. '/logos/party.png'). -- */
   const WATERMARK_SRC = (clients.find(c => c.name === 'TrueLayer') || {}).logo || '';
@@ -522,7 +581,7 @@ function createARScene() {
     watermarkImg.src = WATERMARK_SRC;
   }
 
-  /* -- PHOTO CAPTURE: composite camera feed + overlay + watermark, then share/download -- */
+  /* -- PHOTO CAPTURE: camera feed + overlay + branded frame + watermark -> share/download -- */
   function capturePhoto() {
     const gl = renderer.domElement;
     const W = gl.width, H = gl.height;
@@ -530,17 +589,46 @@ function createARScene() {
     out.width = W; out.height = H;
     const ctx = out.getContext('2d');
 
+    // 1. camera feed (object-fit: cover * current zoom)
     const vw = video.videoWidth || W;
     const vh = video.videoHeight || H;
     const coverScale = Math.max(W / vw, H / vh) * zoom;
     const dw = vw * coverScale, dh = vh * coverScale;
     ctx.drawImage(video, (W - dw) / 2, (H - dh) / 2, dw, dh);
 
+    // 2. 3D overlay (beams + logos) — HUD/buttons/confetti are not included
     ctx.drawImage(gl, 0, 0, W, H);
 
+    // 3. branded frame: bottom gradient banner + title + thin border
+    const bandH = Math.round(H * 0.14);
+    const g = ctx.createLinearGradient(0, H - bandH, 0, H);
+    g.addColorStop(0, 'rgba(10,8,25,0)');
+    g.addColorStop(1, 'rgba(10,8,25,0.72)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, H - bandH, W, bandH);
+
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#ffffff';
+    const titleSize = Math.round(H * 0.05);
+    ctx.font = '700 ' + titleSize + 'px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillText(FRAME_TITLE, Math.round(W * 0.04), H - Math.round(bandH * (FRAME_SUBTITLE ? 0.45 : 0.32)));
+    if (FRAME_SUBTITLE) {
+      const subSize = Math.round(H * 0.03);
+      ctx.font = '400 ' + subSize + 'px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.82)';
+      ctx.fillText(FRAME_SUBTITLE, Math.round(W * 0.04), H - Math.round(bandH * 0.14));
+    }
+
+    const bw = Math.max(3, Math.round(W * 0.006));
+    ctx.strokeStyle = 'rgba(124,58,237,0.9)';
+    ctx.lineWidth = bw;
+    ctx.strokeRect(bw / 2, bw / 2, W - bw, H - bw);
+
+    // 4. corner watermark logo on a clean rounded card (bottom-right)
     if (watermarkReady) {
       const pad = Math.round(W * 0.03);
-      const cardW = Math.round(W * 0.20);
+      const cardW = Math.round(W * 0.18);
       const innerPad = cardW * 0.12;
       const aspect = (watermarkImg.naturalWidth / watermarkImg.naturalHeight) || 3;
       const logoW = cardW - innerPad * 2;
@@ -555,6 +643,7 @@ function createARScene() {
       ctx.drawImage(watermarkImg, x + innerPad, y + innerPad, logoW, logoH);
     }
 
+    // 5. export + share/download
     out.toBlob((blob) => {
       if (!blob) return;
       const file = new File([blob], 'truelayer-sky-garden.jpg', { type: 'image/jpeg' });
@@ -610,7 +699,7 @@ function createARScene() {
     setupCalibration();
   });
 
-  document.getElementById('snap-btn').addEventListener('click', () => capturePhoto());
+  document.getElementById('snap-btn').addEventListener('click', () => { capturePhoto(); fireConfetti(); });
 
   const tlClient = clients.find(c => c.name === 'TrueLayer');
   const tlBearing = getBearing(SKY_GARDEN.lat, SKY_GARDEN.lng, tlClient.lat, tlClient.lng);
@@ -678,7 +767,8 @@ function createARScene() {
       nodeWorldPositions.push(clientWorldPos.clone());
       const tlFlowStart = tlWorldPos.clone().add(new THREE.Vector3(0, 15 + Math.random() * 50, 0));
       const clientFlowEnd = clientWorldPos.clone().add(new THREE.Vector3(0, 8, 0));
-      const flow = createARFlow(tlFlowStart, clientFlowEnd, '#8b5cf6', '#2dd4bf', scene, glowTex);
+      const count = isStar ? FLOW_PARTICLES_STAR : FLOW_PARTICLES_CLIENT;
+      const flow = createARFlow(tlFlowStart, clientFlowEnd, '#8b5cf6', '#2dd4bf', scene, glowTex, count);
       flow.bearing = bearing;
       flowEmitters.push(flow);
     }
@@ -698,7 +788,7 @@ function createARScene() {
     nodeWorldPositions.push(bankWorldPos.clone());
     const bankFlowStart = bankWorldPos.clone().add(new THREE.Vector3(0, 5, 0));
     const tlFlowEnd = tlWorldPos.clone().add(new THREE.Vector3(0, 15 + Math.random() * 50, 0));
-    const flow = createARFlow(bankFlowStart, tlFlowEnd, '#d6ecff', '#5bb4ff', scene, glowTex);
+    const flow = createARFlow(bankFlowStart, tlFlowEnd, '#d6ecff', '#5bb4ff', scene, glowTex, FLOW_PARTICLES_BANK);
     flow.bearing = bearing;
     flowEmitters.push(flow);
   });
@@ -833,6 +923,7 @@ function createARScene() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+    sizeConfetti();
   }
   window.addEventListener('resize', handleResize);
   window.addEventListener('orientationchange', () => setTimeout(handleResize, 200));
