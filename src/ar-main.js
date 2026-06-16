@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import clients from './data/clients.json';
 import banks from './data/banks.json';
+import './quest.js';
 
 const SKY_GARDEN = { lat: 51.511398, lng: -0.083507, alt: 155 };
 const SHARD_BEARING = 195;
@@ -846,6 +847,7 @@ function createARScene() {
 
     smoothedHeading = lerpAngle(smoothedHeading, currentHeading, SMOOTH_FACTOR);
     const adjustedHeading = (smoothedHeading + compassOffset + 360) % 360;
+    window.__skyHeading = adjustedHeading;
 
     const alphaRad = (deviceAlpha * Math.PI / 180) + (compassOffset * Math.PI / 180);
     const betaRad = deviceBeta * Math.PI / 180;
