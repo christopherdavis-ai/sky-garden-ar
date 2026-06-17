@@ -28,9 +28,9 @@ const SKY_GARDEN = { lat: 51.511398, lng: -0.083507 };
  * Change the filename below if you name it something else.                  */
 const PHOTO = {
   logo:     '/party.png',                               // <- your party logo
-  title:    'TrueLayer 10 Years Anniversary Party!',    // <- big line of copy
+  title:    '10 Years Anniversary Party!',               // <- big line of copy
   subtitle: 'Sky Garden · Summer 2026',                 // <- smaller line of copy
-  tag:      '#TrueLayer10'                               // <- corner pill ('' to hide)
+  tag:      ''                                           // <- corner pill ('' to hide)
 };
 /* ======================================================================== */
 
