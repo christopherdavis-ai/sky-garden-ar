@@ -210,7 +210,7 @@ function loadLogo(logoPath, spriteMat, sprite, baseHeight) {
 
 function buildFlowCurve(a, b) {
   const mid = a.clone().lerp(b, 0.5).add(new THREE.Vector3(
-    (Math.random() - 0.5) * 12, 16 + Math.random() * 28, (Math.random() - 0.5) * 12
+    (Math.random() - 0.5) * 5, 14 + Math.random() * 22, (Math.random() - 0.5) * 5
   ));
   return new THREE.CatmullRomCurve3([a.clone(), mid, b.clone()]);
 }
@@ -721,6 +721,8 @@ function createARScene() {
   const tlDist = scaleDistance(getDistance(SKY_GARDEN.lat, SKY_GARDEN.lng, tlClient.lat, tlClient.lng));
   const tlBearingRad = tlBearing * Math.PI / 180;
   const tlWorldPos = new THREE.Vector3(Math.sin(tlBearingRad) * tlDist, -8, -Math.cos(tlBearingRad) * tlDist);
+  // ONE shared anchor at the TrueLayer beam top so every spoke + particle stream converges here.
+  const TL_ANCHOR = tlWorldPos.clone().add(new THREE.Vector3(0, arHeight('host', 'TrueLayer') + 6, 0));
 
   const linePos = [];   // lattice segments, shared with the particle flows
 
@@ -779,10 +781,9 @@ function createARScene() {
 
     if (!isTL) {
       const clientWorldPos = group.position.clone();
-      const tlFlowStart = tlWorldPos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 14, 18 + Math.random() * 45, (Math.random() - 0.5) * 14));
-      const clientFlowEnd = clientWorldPos.clone().add(new THREE.Vector3(0, h, 0));
+      const clientFlowStart = clientWorldPos.clone().add(new THREE.Vector3(0, h, 0));
       const count = isStar ? FLOW_PARTICLES_STAR : FLOW_PARTICLES_CLIENT;
-      const curve = buildFlowCurve(tlFlowStart, clientFlowEnd);
+      const curve = buildFlowCurve(clientFlowStart, TL_ANCHOR.clone());
       const flow = createARFlow(curve, '#a78bfa', '#2dd4bf', scene, glowTex, count);
       flow.bearing = bearing;
       flowEmitters.push(flow);
@@ -791,7 +792,9 @@ function createARScene() {
   });
 
   banks.forEach((bank) => {
-    const bearing = getBearing(SKY_GARDEN.lat, SKY_GARDEN.lng, bank.lat, bank.lng);
+    let bearing = getBearing(SKY_GARDEN.lat, SKY_GARDEN.lng, bank.lat, bank.lng);
+    // Offset Starling so its beam does not sit directly behind TrueLayer.
+    if (/starling/i.test(bank.name)) bearing += 16;
     const sceneDist = scaleDistance(getDistance(SKY_GARDEN.lat, SKY_GARDEN.lng, bank.lat, bank.lng));
     const h = arHeight('bank', bank.name);
 
@@ -802,8 +805,7 @@ function createARScene() {
 
     const bankWorldPos = group.position.clone();
     const bankFlowStart = bankWorldPos.clone().add(new THREE.Vector3(0, h, 0));
-    const tlFlowEnd = tlWorldPos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 14, 18 + Math.random() * 45, (Math.random() - 0.5) * 14));
-    const curve = buildFlowCurve(bankFlowStart, tlFlowEnd);
+    const curve = buildFlowCurve(bankFlowStart, TL_ANCHOR.clone());
     const flow = createARFlow(curve, '#d6ecff', '#5bb4ff', scene, glowTex, FLOW_PARTICLES_BANK);
     flow.bearing = bearing;
     flowEmitters.push(flow);
