@@ -730,19 +730,19 @@ function createARScene() {
 
     const beamMat = makeBeamMaterial(color, phase);
     const beam = new THREE.Mesh(
-      new THREE.CylinderGeometry(isTL ? 1 : 0.6, isTL ? 1 : 0.6, h, 16, 1, true),
+      new THREE.CylinderGeometry(isTL ? 3 : 0.6, isTL ? 3 : 0.6, h, isTL ? 32 : 16, 1, true),
       beamMat
     );
     beam.position.y = h / 2;
 
     const glow = new THREE.Mesh(
-      new THREE.CylinderGeometry(isTL ? 2 : 1.1, isTL ? 2 : 1.1, h * 1.05, 16, 1, true),
+      new THREE.CylinderGeometry(isTL ? 5 : 1.1, isTL ? 5 : 1.1, h * 1.05, isTL ? 32 : 16, 1, true),
       new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.15, blending: THREE.AdditiveBlending, depthWrite: false })
     );
     glow.position.y = h / 2;
 
     const ring = new THREE.Mesh(
-      new THREE.RingGeometry(isTL ? 2.2 : 1.1, isTL ? 3.4 : 1.9, 32),
+      new THREE.RingGeometry(isTL ? 5 : 1.1, isTL ? 7.5 : 1.9, 32),
       new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false })
     );
     ring.rotation.x = -Math.PI / 2;
