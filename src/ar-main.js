@@ -14,7 +14,7 @@ const MAX_ZOOM = 4;
 // Star clients and banks read as high-volume; regular clients are lighter.
 const FLOW_PARTICLES_STAR = 26;
 const FLOW_PARTICLES_BANK = 26;   // <- set to 8 if you want banks lighter like regular clients
-const FLOW_PARTICLES_CLIENT = 8;
+const FLOW_PARTICLES_CLIENT = 12;
 
 // Branded photo frame text (easy to edit / swap for the party later)
 const FRAME_TITLE = 'TrueLayer \u00b7 Sky Garden';
@@ -445,8 +445,8 @@ function createARScene() {
     flowEmitters.forEach((f) => {
       f.layers[0].material.blending = dayMode ? norm : add;
       f.layers[1].material.blending = dayMode ? norm : add;
-      f.layers[0].material.opacity = dayMode ? 0.0 : 0.14;   // hide soft halo by day
-      f.layers[1].material.opacity = dayMode ? 0.95 : 0.4;   // opaque cores by day
+      f.layers[0].material.opacity = dayMode ? 0.5 : 0.2;    // keep soft halo visible (incl. day)
+      f.layers[1].material.opacity = dayMode ? 0.95 : 0.55;  // opaque cores by day
     });
     if (latticeMat) {
       latticeMat.blending = dayMode ? norm : add;
@@ -840,20 +840,21 @@ function createARScene() {
   const camEuler = new THREE.Euler();
 
   /* -- HERO: party logo floating, facing you & glowing in the sky above Sky Garden -- */
-  let skyLogo = null, skyGlow = null;
-  const SKY_DIST = 80, SKY_BASE_Y = 110;
+  let skyLogo = null, skyGlow = null, skyGlowW = 200, skyGlowH = 150;
+  const SKY_DIST = 95, SKY_BASE_Y = 135;
   const _skyBR = SHARD_BEARING * Math.PI / 180;
   const skyPos = new THREE.Vector3(Math.sin(_skyBR) * SKY_DIST, SKY_BASE_Y, -Math.cos(_skyBR) * SKY_DIST);
   {
-    const sg = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xAFADFF, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false }));
-    sg.scale.set(58, 58, 1); sg.position.copy(skyPos); scene.add(sg); skyGlow = sg;
+    const sg = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xAFADFF, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false }));
+    sg.scale.set(skyGlowW, skyGlowH, 1); sg.position.copy(skyPos); scene.add(sg); skyGlow = sg;
     const sl = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, depthWrite: false, opacity: 0 }));
     sl.position.copy(skyPos); scene.add(sl); skyLogo = sl;
     new THREE.TextureLoader().load('/party.png', (tex) => {
       tex.colorSpace = THREE.SRGBColorSpace;
       sl.material.map = tex; sl.material.opacity = 1; sl.material.needsUpdate = true;
       const a = (tex.image.width / tex.image.height) || 3;
-      const HH = 22; sl.scale.set(HH * a, HH, 1);
+      const HH = 70; const W = HH * a; sl.scale.set(W, HH, 1);   // much bigger hero
+      skyGlowW = W * 0.85; skyGlowH = HH * 2.0;
     }, undefined, () => { sg.visible = false; });
   }
 
@@ -890,35 +891,33 @@ function createARScene() {
       const ph6 = b.phase * 6.2831;
       const breathe = 0.5 + 0.5 * Math.sin(t * 1.4 + ph6);
 
-      // ---- DISCO: rainbow colours + dancing, glowing columns ----
-      let discoBoost = 1;
+      // ---- DISCO: gentle rainbow + soft swaying columns (movement-focused, tamed) ----
       let topY = b.h + 3;
       if (discoMode) {
-        const hue = (t * 0.28 + b.phase) % 1;
-        b.beamMat.uniforms.uColor.value.setHSL(hue, 1.0, 0.6);
-        const beat = 0.5 + 0.5 * Math.sin(t * 5.2);                     // shared dance-floor pulse
-        const wob  = 0.5 + 0.5 * Math.sin(t * (3 + b.phase * 4) + ph6); // per-beam wobble
-        const s = 0.6 + 0.75 * (0.45 * beat + 0.55 * wob);             // ~0.6 .. ~1.35 height
+        const hue = (t * 0.12 + b.phase) % 1;                          // slow, calm colour drift
+        b.beamMat.uniforms.uColor.value.setHSL(hue, 0.85, 0.58);
+        const beat = 0.5 + 0.5 * Math.sin(t * 2.2);                     // gentle shared sway
+        const wob  = 0.5 + 0.5 * Math.sin(t * (1.4 + b.phase * 1.6) + ph6);
+        const s = 0.82 + 0.3 * (0.5 * beat + 0.5 * wob);              // ~0.82 .. ~1.12 (calm)
         b.beam.scale.y = s; b.beam.position.y = b.h * s / 2;
-        discoBoost = 1.5 + beat * 0.9;
         topY = b.h * s + 3;
       } else if (b.beam.scale.y !== 1) {
         b.beam.scale.y = 1; b.beam.position.y = b.h / 2;                // reset after disco
       }
 
-      b.beamMat.uniforms.uTime.value = discoMode ? t * 2.0 : t;
+      b.beamMat.uniforms.uTime.value = t;
       b.beamMat.uniforms.uFade.value = fade;
 
-      const gxz = (1 + breathe * 0.07) * (discoMode ? 1.3 : 1);
+      const gxz = 1 + breathe * 0.07;
       const gy = discoMode ? b.beam.scale.y : 1;
       b.glow.scale.set(gxz, gy, gxz);
       b.glow.position.y = (discoMode ? b.h * b.beam.scale.y : b.h) / 2;
-      b.glow.material.opacity = fade * (0.10 + 0.10 * breathe) * discoBoost;
+      b.glow.material.opacity = fade * (0.10 + 0.10 * breathe);
 
-      const ringP = (t * (discoMode ? 0.95 : 0.4) + b.phase) % 1;
-      const rs = 1 + ringP * (discoMode ? 3.4 : 2.6);
+      const ringP = (t * 0.4 + b.phase) % 1;
+      const rs = 1 + ringP * 2.6;
       b.ring.scale.set(rs, rs, 1);
-      b.ring.material.opacity = fade * (1 - ringP) * (dayMode ? 0.4 : 0.6) * (discoMode ? 1.5 : 1);
+      b.ring.material.opacity = fade * (1 - ringP) * (dayMode ? 0.4 : 0.6);
 
       b.sprite.material.opacity = fade;
       b.sprite.material.rotation = counterRoll;
@@ -926,14 +925,14 @@ function createARScene() {
     });
 
     if (skyLogo) {
-      const bob = Math.sin(t * 0.8) * 4;
+      const bob = Math.sin(t * 0.8) * 5;
       skyLogo.position.y = SKY_BASE_Y + bob;
       if (skyGlow && skyGlow.visible) {
         skyGlow.position.y = SKY_BASE_Y + bob;
-        const pulse = 0.35 + 0.22 * Math.sin(t * 1.3);
-        skyGlow.material.opacity = discoMode ? pulse * 1.7 : pulse;
-        const gs = 56 + Math.sin(t * 1.3) * 8 + (discoMode ? 14 : 0);
-        skyGlow.scale.set(gs, gs, 1);
+        const pulse = 0.3 + 0.16 * Math.sin(t * 1.3);
+        skyGlow.material.opacity = discoMode ? pulse * 1.4 : pulse;
+        const k = 1 + 0.06 * Math.sin(t * 1.3) + (discoMode ? 0.08 : 0);
+        skyGlow.scale.set(skyGlowW * k, skyGlowH * k, 1);
       }
     }
 
