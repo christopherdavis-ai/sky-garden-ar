@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>TrueLayer 10 — Photo Wall</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"/>
+<style>
+  :root{ --purple:#7c3aed; --teal:#2dd4bf; }
+  *{ box-sizing:border-box; margin:0; padding:0; font-family:'Manrope',-apple-system,sans-serif; }
+  html,body{ height:100%; background:#06040f; color:#fff; overflow:hidden; }
+  body{ background:radial-gradient(1200px 800px at 50% -10%, rgba(124,58,237,.35), transparent 60%), #06040f; }
+  header{ position:fixed; top:0; left:0; right:0; height:88px; display:flex; align-items:center; justify-content:center; gap:18px; z-index:5;
+    background:linear-gradient(180deg, rgba(6,4,15,.92), transparent); }
+  header img{ height:48px; object-fit:contain; }
+  header .t{ font-weight:800; font-size:24px; letter-spacing:.3px; }
+  header .t small{ display:block; font-weight:500; font-size:14px; color:rgba(255,255,255,.7); }
+  #grid{ position:absolute; inset:96px 24px 24px; column-gap:16px; columns:5; overflow:hidden; }
+  @media (max-width:1400px){ #grid{ columns:4; } }
+  @media (max-width:1000px){ #grid{ columns:3; } }
+  @media (max-width:640px){ #grid{ columns:2; } }
+  .card{ break-inside:avoid; margin:0 0 16px; border-radius:14px; overflow:hidden; border:2px solid rgba(255,255,255,.12);
+    box-shadow:0 10px 30px rgba(0,0,0,.5); animation:pop .6s cubic-bezier(.2,1.3,.4,1); background:#120e26; }
+  .card img{ width:100%; display:block; }
+  @keyframes pop{ from{ transform:scale(.6); opacity:0; } to{ transform:scale(1); opacity:1; } }
+  #spot{ position:fixed; inset:0; z-index:10; display:none; align-items:center; justify-content:center;
+    background:rgba(6,4,15,.86); backdrop-filter:blur(8px); }
+  #spot.on{ display:flex; animation:fade .4s; }
+  #spot img{ max-width:74vw; max-height:78vh; border-radius:18px; border:3px solid rgba(255,255,255,.9);
+    box-shadow:0 30px 80px rgba(0,0,0,.7); }
+  #spot .lbl{ position:absolute; top:10%; left:50%; transform:translateX(-50%); font-weight:800; font-size:30px;
+    background:linear-gradient(135deg,var(--purple),var(--teal)); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  @keyframes fade{ from{opacity:0;} to{opacity:1;} }
+  #qr{ position:fixed; bottom:22px; right:22px; z-index:6; background:rgba(18,14,38,.85); border:1px solid rgba(255,255,255,.15);
+    border-radius:16px; padding:14px; text-align:center; backdrop-filter:blur(8px); }
+  #qr img{ width:150px; height:150px; border-radius:8px; background:#fff; display:block; }
+  #qr div{ margin-top:8px; font-weight:700; font-size:13px; }
+  #empty{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; color:rgba(255,255,255,.7);
+    font-size:22px; font-weight:600; padding:40px; }
+</style>
+</head>
+<body>
+  <header>
+    <img id="logo" src="/party.png" alt="" onerror="this.style.display='none'"/>
+    <div class="t">Photo Wall<small id="sub">TrueLayer 10 Years Anniversary Party!</small></div>
+  </header>
+  <div id="empty">&#128247; Head to the photo booth &mdash; your snaps appear here &#10024;</div>
+  <div id="grid"></div>
+  <div id="spot"><div class="lbl">&#10024; Just in!</div><img id="spot-img" alt=""/></div>
+  <div id="qr">
+    <img id="qr-img" alt="QR"/>
+    <div>&#128247; Scan to join</div>
+  </div>
+<script>
+  const GRID = document.getElementById('grid');
+  const EMPTY = document.getElementById('empty');
+  const SPOT = document.getElementById('spot');
+  const SPOT_IMG = document.getElementById('spot-img');
+  const MAX = 40;
+  const seen = new Set();
+  let first = true;
+
+  const boothUrl = location.origin + '/ar';
+  document.getElementById('qr-img').src =
+    'https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=' + encodeURIComponent(boothUrl);
+
+  function addCard(url, animate) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    if (!animate) card.style.animation = 'none';
+    const img = document.createElement('img');
+    img.src = url; img.alt = '';
+    card.appendChild(img);
+    GRID.prepend(card);
+    while (GRID.children.length > MAX) GRID.removeChild(GRID.lastChild);
+  }
+  function spotlight(url) {
+    SPOT_IMG.src = url;
+    SPOT.classList.add('on');
+    setTimeout(() => SPOT.classList.remove('on'), 4200);
+  }
+  async function poll() {
+    try {
+      const r = await fetch('/api/photos', { cache: 'no-store' });
+      if (!r.ok) return;
+      const data = await r.json();
+      const photos = data.photos || [];
+      if (photos.length) EMPTY.style.display = 'none';
+      const fresh = photos.filter((p) => !seen.has(p.url));
+      if (first) {
+        photos.slice().reverse().forEach((p) => { seen.add(p.url); addCard(p.url, false); });
+        first = false;
+      } else if (fresh.length) {
+        fresh.slice().reverse().forEach((p) => { seen.add(p.url); addCard(p.url, true); });
+        spotlight(fresh[0].url);
+      }
+    } catch (e) {}
+  }
+  poll();
+  setInterval(poll, 4000);
+</script>
+</body>
+</html>

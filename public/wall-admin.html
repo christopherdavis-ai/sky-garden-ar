@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Photo Wall &mdash; Moderator</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;font-family:'Manrope',-apple-system,sans-serif;}
+  body{background:#0d0a1a;color:#fff;padding:18px;}
+  h1{font-size:20px;margin-bottom:4px;} p{color:rgba(255,255,255,.6);font-size:13px;margin-bottom:16px;}
+  .bar{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;align-items:center;}
+  input{background:#1a1430;border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:10px;padding:10px 14px;font-size:14px;}
+  button{background:#7c3aed;color:#fff;border:none;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer;font-size:14px;}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;}
+  .cell{position:relative;border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,.12);background:#000;}
+  .cell img{width:100%;display:block;}
+  .cell button{position:absolute;top:8px;right:8px;background:rgba(220,40,40,.92);padding:6px 10px;border-radius:8px;font-size:12px;}
+  .count{margin-left:auto;color:rgba(255,255,255,.6);font-size:13px;}
+</style></head><body>
+  <h1>&#128737;&#65039; Photo Wall &mdash; Moderator</h1>
+  <p>Remove any photo from the wall instantly. Your admin key is stored only on this device.</p>
+  <div class="bar">
+    <input id="key" type="password" placeholder="Admin key"/>
+    <button id="save">Save key</button>
+    <button id="refresh">Refresh</button>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="grid" id="grid"></div>
+<script>
+  const KEY_LS='wall_admin_key';
+  const keyInput=document.getElementById('key');
+  keyInput.value=localStorage.getItem(KEY_LS)||'';
+  document.getElementById('save').onclick=()=>{localStorage.setItem(KEY_LS,keyInput.value.trim());load();};
+  document.getElementById('refresh').onclick=load;
+  const GRID=document.getElementById('grid');
+  async function load(){
+    GRID.innerHTML='';
+    try{
+      const r=await fetch('/api/photos',{cache:'no-store'});
+      const data=await r.json();
+      const photos=data.photos||[];
+      document.getElementById('count').textContent=photos.length+' photos';
+      photos.forEach(p=>{
+        const cell=document.createElement('div');cell.className='cell';
+        const img=document.createElement('img');img.src=p.url;
+        const btn=document.createElement('button');btn.textContent='Remove';
+        btn.onclick=()=>remove(p.url,cell);
+        cell.appendChild(img);cell.appendChild(btn);GRID.appendChild(cell);
+      });
+    }catch(e){}
+  }
+  async function remove(url,cell){
+    const key=localStorage.getItem(KEY_LS)||'';
+    if(!key){alert('Enter your admin key first');return;}
+    if(!confirm('Remove this photo from the wall?'))return;
+    try{
+      const r=await fetch('/api/photos',{method:'DELETE',headers:{'Content-Type':'application/json','x-admin-key':key},body:JSON.stringify({url})});
+      if(r.ok){cell.remove();}
+      else if(r.status===401){alert('Wrong admin key');}
+      else{alert('Failed to remove');}
+    }catch(e){alert('Failed to remove');}
+  }
+  load();
+</script></body></html>
