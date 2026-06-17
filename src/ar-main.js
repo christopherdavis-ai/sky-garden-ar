@@ -210,7 +210,7 @@ function loadLogo(logoPath, spriteMat, sprite, baseHeight) {
 
 function buildFlowCurve(a, b) {
   const mid = a.clone().lerp(b, 0.5).add(new THREE.Vector3(
-    (Math.random() - 0.5) * 5, 14 + Math.random() * 22, (Math.random() - 0.5) * 5
+    (Math.random() - 0.5) * 12, 16 + Math.random() * 28, (Math.random() - 0.5) * 12
   ));
   return new THREE.CatmullRomCurve3([a.clone(), mid, b.clone()]);
 }
@@ -464,8 +464,8 @@ function createARScene() {
     });
     if (latticeMat) {
       latticeMat.blending = dayMode ? norm : add;
-      latticeMat.opacity = dayMode ? 0.32 : 0.2;
-      latticeMat.color.set(dayMode ? '#2b6fd6' : '#9fd0ff');
+      latticeMat.opacity = dayMode ? 0.4 : 0.2;
+      latticeMat.color.set(dayMode ? '#AFADFF' : '#9fd0ff');
     }
   }
 
@@ -721,8 +721,6 @@ function createARScene() {
   const tlDist = scaleDistance(getDistance(SKY_GARDEN.lat, SKY_GARDEN.lng, tlClient.lat, tlClient.lng));
   const tlBearingRad = tlBearing * Math.PI / 180;
   const tlWorldPos = new THREE.Vector3(Math.sin(tlBearingRad) * tlDist, -8, -Math.cos(tlBearingRad) * tlDist);
-  // ONE shared anchor at the TrueLayer beam top so every spoke + particle stream converges here.
-  const TL_ANCHOR = tlWorldPos.clone().add(new THREE.Vector3(0, arHeight('host', 'TrueLayer') + 6, 0));
 
   const linePos = [];   // lattice segments, shared with the particle flows
 
@@ -781,9 +779,10 @@ function createARScene() {
 
     if (!isTL) {
       const clientWorldPos = group.position.clone();
-      const clientFlowStart = clientWorldPos.clone().add(new THREE.Vector3(0, h, 0));
+      const clientTop = clientWorldPos.clone().add(new THREE.Vector3(0, h, 0));
+      const tlFlowPoint = tlWorldPos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 14, 18 + Math.random() * 45, (Math.random() - 0.5) * 14));
       const count = isStar ? FLOW_PARTICLES_STAR : FLOW_PARTICLES_CLIENT;
-      const curve = buildFlowCurve(clientFlowStart, TL_ANCHOR.clone());
+      const curve = buildFlowCurve(clientTop, tlFlowPoint);   // client -> TrueLayer (flows IN)
       const flow = createARFlow(curve, '#a78bfa', '#2dd4bf', scene, glowTex, count);
       flow.bearing = bearing;
       flowEmitters.push(flow);
@@ -804,8 +803,9 @@ function createARScene() {
     });
 
     const bankWorldPos = group.position.clone();
-    const bankFlowStart = bankWorldPos.clone().add(new THREE.Vector3(0, h, 0));
-    const curve = buildFlowCurve(bankFlowStart, TL_ANCHOR.clone());
+    const bankTop = bankWorldPos.clone().add(new THREE.Vector3(0, h, 0));
+    const tlFlowPoint = tlWorldPos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 14, 18 + Math.random() * 45, (Math.random() - 0.5) * 14));
+    const curve = buildFlowCurve(tlFlowPoint, bankTop);   // TrueLayer -> bank (flows OUT)
     const flow = createARFlow(curve, '#d6ecff', '#5bb4ff', scene, glowTex, FLOW_PARTICLES_BANK);
     flow.bearing = bearing;
     flowEmitters.push(flow);
