@@ -4,6 +4,8 @@
   "outputDirectory": "dist",
   "rewrites": [
     { "source": "/", "destination": "/index.html" },
-    { "source": "/ar", "destination": "/ar.html" }
+    { "source": "/ar", "destination": "/ar.html" },
+    { "source": "/wall", "destination": "/wall.html" },
+    { "source": "/wall/admin", "destination": "/wall-admin.html" }
   ]
 }
