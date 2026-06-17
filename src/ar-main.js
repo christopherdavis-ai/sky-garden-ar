@@ -14,7 +14,7 @@ const MAX_ZOOM = 4;
 // Star clients and banks read as high-volume; regular clients are lighter.
 const FLOW_PARTICLES_STAR = 26;
 const FLOW_PARTICLES_BANK = 26;   // <- set to 8 if you want banks lighter like regular clients
-const FLOW_PARTICLES_CLIENT = 12;
+const FLOW_PARTICLES_CLIENT = 14;
 
 // Branded photo frame text (easy to edit / swap for the party later)
 const FRAME_TITLE = 'TrueLayer \u00b7 Sky Garden';
@@ -208,9 +208,23 @@ function loadLogo(logoPath, spriteMat, sprite, baseHeight) {
   }, undefined, () => {});
 }
 
-function createARFlow(pointA, pointB, colorA, colorB, scene, glowTex, count) {
-  const mid = pointA.clone().lerp(pointB, 0.5).add(new THREE.Vector3(0, 18, 0));
-  const curve = new THREE.CatmullRomCurve3([pointA, mid, pointB]);
+function buildFlowCurve(a, b) {
+  const mid = a.clone().lerp(b, 0.5).add(new THREE.Vector3(
+    (Math.random() - 0.5) * 12, 16 + Math.random() * 28, (Math.random() - 0.5) * 12
+  ));
+  return new THREE.CatmullRomCurve3([a.clone(), mid, b.clone()]);
+}
+function appendCurveLine(curve, linePos, seg) {
+  seg = seg || 22;
+  let prev = curve.getPoint(0);
+  for (let s = 1; s <= seg; s++) {
+    const cur = curve.getPoint(s / seg);
+    linePos.push(prev.x, prev.y, prev.z, cur.x, cur.y, cur.z);
+    prev = cur;
+  }
+}
+
+function createARFlow(curve, colorA, colorB, scene, glowTex, count) {
   const pos = new Float32Array(count * 3);
   const col = new Float32Array(count * 3);
   const c1 = new THREE.Color(colorA);
@@ -223,14 +237,14 @@ function createARFlow(pointA, pointB, colorA, colorB, scene, glowTex, count) {
     col.set([c.r, c.g, c.b], i * 3);
     seeds.push({
       sx: Math.random() * 100, sy: Math.random() * 100, sz: Math.random() * 100,
-      freqX: 0.2 + Math.random() * 0.4, freqY: 0.15 + Math.random() * 0.3,
-      freqZ: 0.2 + Math.random() * 0.4, spread: 0.4 + Math.random() * 0.8,
+      freqX: 0.25 + Math.random() * 0.55, freqY: 0.2 + Math.random() * 0.45,
+      freqZ: 0.25 + Math.random() * 0.55, spread: 0.8 + Math.random() * 1.4,
       speedMult: 0.7 + Math.random() * 0.6
     });
   }
   const layers = [];
   // layers[0] = soft halo, layers[1] = bright core
-  [{ size: 2.0, opacity: 0.14 }, { size: 0.85, opacity: 0.4 }].forEach((cfg) => {
+  [{ size: 3.4, opacity: 0.4 }, { size: 1.4, opacity: 0.85 }].forEach((cfg) => {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3));
     g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(col), 3));
@@ -242,7 +256,7 @@ function createARFlow(pointA, pointB, colorA, colorB, scene, glowTex, count) {
     scene.add(pts);
     layers.push(pts);
   });
-  return { curve, layers, count, seeds, speed: 0.025 + Math.random() * 0.02, offset: Math.random(), bearing: 0 };
+  return { curve, layers, count, seeds, speed: 0.03 + Math.random() * 0.025, offset: Math.random(), bearing: 0 };
 }
 
 const _zee = new THREE.Vector3(0, 0, 1);
@@ -445,13 +459,13 @@ function createARScene() {
     flowEmitters.forEach((f) => {
       f.layers[0].material.blending = dayMode ? norm : add;
       f.layers[1].material.blending = dayMode ? norm : add;
-      f.layers[0].material.opacity = dayMode ? 0.5 : 0.2;    // keep soft halo visible (incl. day)
-      f.layers[1].material.opacity = dayMode ? 0.95 : 0.55;  // opaque cores by day
+      f.layers[0].material.opacity = dayMode ? 0.55 : 0.42;  // soft glow halo (visible day + night)
+      f.layers[1].material.opacity = dayMode ? 0.98 : 0.9;   // bright glowing cores
     });
     if (latticeMat) {
       latticeMat.blending = dayMode ? norm : add;
-      latticeMat.opacity = dayMode ? 0.18 : 0.06;
-      latticeMat.color.set(dayMode ? '#2b6fd6' : '#6fb3ff');
+      latticeMat.opacity = dayMode ? 0.32 : 0.2;
+      latticeMat.color.set(dayMode ? '#2b6fd6' : '#9fd0ff');
     }
   }
 
@@ -708,7 +722,7 @@ function createARScene() {
   const tlBearingRad = tlBearing * Math.PI / 180;
   const tlWorldPos = new THREE.Vector3(Math.sin(tlBearingRad) * tlDist, -8, -Math.cos(tlBearingRad) * tlDist);
 
-  const nodeWorldPositions = [];
+  const linePos = [];   // lattice segments, shared with the particle flows
 
   function buildBeam({ color, h, isTL, initials, logo, isStar, bearing, sceneDist, isBank }) {
     const group = new THREE.Group();
@@ -765,13 +779,14 @@ function createARScene() {
 
     if (!isTL) {
       const clientWorldPos = group.position.clone();
-      nodeWorldPositions.push(clientWorldPos.clone());
-      const tlFlowStart = tlWorldPos.clone().add(new THREE.Vector3(0, 15 + Math.random() * 50, 0));
-      const clientFlowEnd = clientWorldPos.clone().add(new THREE.Vector3(0, 8, 0));
+      const tlFlowStart = tlWorldPos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 14, 18 + Math.random() * 45, (Math.random() - 0.5) * 14));
+      const clientFlowEnd = clientWorldPos.clone().add(new THREE.Vector3(0, h, 0));
       const count = isStar ? FLOW_PARTICLES_STAR : FLOW_PARTICLES_CLIENT;
-      const flow = createARFlow(tlFlowStart, clientFlowEnd, '#8b5cf6', '#2dd4bf', scene, glowTex, count);
+      const curve = buildFlowCurve(tlFlowStart, clientFlowEnd);
+      const flow = createARFlow(curve, '#a78bfa', '#2dd4bf', scene, glowTex, count);
       flow.bearing = bearing;
       flowEmitters.push(flow);
+      appendCurveLine(curve, linePos);
     }
   });
 
@@ -786,45 +801,20 @@ function createARScene() {
     });
 
     const bankWorldPos = group.position.clone();
-    nodeWorldPositions.push(bankWorldPos.clone());
-    const bankFlowStart = bankWorldPos.clone().add(new THREE.Vector3(0, 5, 0));
-    const tlFlowEnd = tlWorldPos.clone().add(new THREE.Vector3(0, 15 + Math.random() * 50, 0));
-    const flow = createARFlow(bankFlowStart, tlFlowEnd, '#d6ecff', '#5bb4ff', scene, glowTex, FLOW_PARTICLES_BANK);
+    const bankFlowStart = bankWorldPos.clone().add(new THREE.Vector3(0, h, 0));
+    const tlFlowEnd = tlWorldPos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 14, 18 + Math.random() * 45, (Math.random() - 0.5) * 14));
+    const curve = buildFlowCurve(bankFlowStart, tlFlowEnd);
+    const flow = createARFlow(curve, '#d6ecff', '#5bb4ff', scene, glowTex, FLOW_PARTICLES_BANK);
     flow.bearing = bearing;
     flowEmitters.push(flow);
+    appendCurveLine(curve, linePos);
   });
 
-  /* -- LATTICE: curved, height-varied web from every node toward TrueLayer -- */
-  const LATTICE_SEG = 18;
-  const linePos = [];
-  nodeWorldPositions.forEach((p) => {
-    const hub = tlWorldPos.clone().add(new THREE.Vector3(
-      (Math.random() - 0.5) * 16,
-      20 + Math.random() * 55,
-      (Math.random() - 0.5) * 16
-    ));
-    const end = p.clone().add(new THREE.Vector3(
-      (Math.random() - 0.5) * 4,
-      10 + Math.random() * 45,
-      (Math.random() - 0.5) * 4
-    ));
-    const mid = hub.clone().lerp(end, 0.5).add(new THREE.Vector3(
-      (Math.random() - 0.5) * 24,
-      12 + Math.random() * 40,
-      (Math.random() - 0.5) * 24
-    ));
-    const curve = new THREE.QuadraticBezierCurve3(hub, mid, end);
-    let prev = curve.getPoint(0);
-    for (let s = 1; s <= LATTICE_SEG; s++) {
-      const cur = curve.getPoint(s / LATTICE_SEG);
-      linePos.push(prev.x, prev.y, prev.z, cur.x, cur.y, cur.z);
-      prev = cur;
-    }
-  });
+  /* -- LATTICE: one glowing line per connection, sharing each flow's curve -- */
   const lineGeo = new THREE.BufferGeometry();
   lineGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(linePos), 3));
   latticeMat = new THREE.LineBasicMaterial({
-    color: '#6fb3ff', transparent: true, opacity: 0.06, blending: THREE.AdditiveBlending, depthWrite: false
+    color: '#8fc8ff', transparent: true, opacity: 0.18, blending: THREE.AdditiveBlending, depthWrite: false
   });
   const lattice = new THREE.LineSegments(lineGeo, latticeMat);
   scene.add(lattice);
