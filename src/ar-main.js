@@ -622,7 +622,7 @@ function createARScene() {
     }
 
     const bw = Math.max(3, Math.round(W * 0.006));
-    ctx.strokeStyle = 'rgba(124,58,237,0.9)';
+    ctx.strokeStyle = 'rgba(77,59,216,0.9)';
     ctx.lineWidth = bw;
     ctx.strokeRect(bw / 2, bw / 2, W - bw, H - bw);
 
@@ -747,7 +747,7 @@ function createARScene() {
     const bearingRad = bearing * Math.PI / 180;
     group.position.set(Math.sin(bearingRad) * sceneDist, -8, -Math.cos(bearingRad) * sceneDist);
     scene.add(group);
-    beamEntries.push({ group, bearing, beamMat, glow, ring, sprite, phase, h, isTL, baseColor: new THREE.Color(color) });
+    beamEntries.push({ group, beam, bearing, beamMat, glow, ring, sprite, phase, h, isTL, baseColor: new THREE.Color(color) });
     return group;
   }
 
@@ -839,6 +839,24 @@ function createARScene() {
   let quatReady = false;
   const camEuler = new THREE.Euler();
 
+  /* -- HERO: party logo floating, facing you & glowing in the sky above Sky Garden -- */
+  let skyLogo = null, skyGlow = null;
+  const SKY_DIST = 80, SKY_BASE_Y = 110;
+  const _skyBR = SHARD_BEARING * Math.PI / 180;
+  const skyPos = new THREE.Vector3(Math.sin(_skyBR) * SKY_DIST, SKY_BASE_Y, -Math.cos(_skyBR) * SKY_DIST);
+  {
+    const sg = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xAFADFF, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false }));
+    sg.scale.set(58, 58, 1); sg.position.copy(skyPos); scene.add(sg); skyGlow = sg;
+    const sl = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, depthWrite: false, opacity: 0 }));
+    sl.position.copy(skyPos); scene.add(sl); skyLogo = sl;
+    new THREE.TextureLoader().load('/party.png', (tex) => {
+      tex.colorSpace = THREE.SRGBColorSpace;
+      sl.material.map = tex; sl.material.opacity = 1; sl.material.needsUpdate = true;
+      const a = (tex.image.width / tex.image.height) || 3;
+      const HH = 22; sl.scale.set(HH * a, HH, 1);
+    }, undefined, () => { sg.visible = false; });
+  }
+
   function animate() {
     requestAnimationFrame(animate);
     if (!calibrated) { renderer.render(scene, camera); return; }
@@ -870,29 +888,54 @@ function createARScene() {
       visibleCount++;
 
       const ph6 = b.phase * 6.2831;
+      const breathe = 0.5 + 0.5 * Math.sin(t * 1.4 + ph6);
 
+      // ---- DISCO: rainbow colours + dancing, glowing columns ----
+      let discoBoost = 1;
+      let topY = b.h + 3;
       if (discoMode) {
-        const hue = (t * 0.15 + b.phase) % 1;
-        b.beamMat.uniforms.uColor.value.setHSL(hue, 1.0, 0.55);
+        const hue = (t * 0.28 + b.phase) % 1;
+        b.beamMat.uniforms.uColor.value.setHSL(hue, 1.0, 0.6);
+        const beat = 0.5 + 0.5 * Math.sin(t * 5.2);                     // shared dance-floor pulse
+        const wob  = 0.5 + 0.5 * Math.sin(t * (3 + b.phase * 4) + ph6); // per-beam wobble
+        const s = 0.6 + 0.75 * (0.45 * beat + 0.55 * wob);             // ~0.6 .. ~1.35 height
+        b.beam.scale.y = s; b.beam.position.y = b.h * s / 2;
+        discoBoost = 1.5 + beat * 0.9;
+        topY = b.h * s + 3;
+      } else if (b.beam.scale.y !== 1) {
+        b.beam.scale.y = 1; b.beam.position.y = b.h / 2;                // reset after disco
       }
 
-      b.beamMat.uniforms.uTime.value = t;
+      b.beamMat.uniforms.uTime.value = discoMode ? t * 2.0 : t;
       b.beamMat.uniforms.uFade.value = fade;
 
-      const breathe = 0.5 + 0.5 * Math.sin(t * 1.4 + ph6);
-      b.glow.material.opacity = fade * (0.10 + 0.10 * breathe);
-      const gp = 1 + breathe * 0.07;
-      b.glow.scale.set(gp, 1, gp);
+      const gxz = (1 + breathe * 0.07) * (discoMode ? 1.3 : 1);
+      const gy = discoMode ? b.beam.scale.y : 1;
+      b.glow.scale.set(gxz, gy, gxz);
+      b.glow.position.y = (discoMode ? b.h * b.beam.scale.y : b.h) / 2;
+      b.glow.material.opacity = fade * (0.10 + 0.10 * breathe) * discoBoost;
 
-      const ringP = (t * 0.4 + b.phase) % 1;
-      const rs = 1 + ringP * 2.6;
+      const ringP = (t * (discoMode ? 0.95 : 0.4) + b.phase) % 1;
+      const rs = 1 + ringP * (discoMode ? 3.4 : 2.6);
       b.ring.scale.set(rs, rs, 1);
-      b.ring.material.opacity = fade * (1 - ringP) * (dayMode ? 0.4 : 0.6);
+      b.ring.material.opacity = fade * (1 - ringP) * (dayMode ? 0.4 : 0.6) * (discoMode ? 1.5 : 1);
 
       b.sprite.material.opacity = fade;
       b.sprite.material.rotation = counterRoll;
-      b.sprite.position.y = b.sprite.userData.baseY + Math.sin(t * 1.1 + i * 0.7) * 1.2;
+      b.sprite.position.y = topY + Math.sin(t * 1.1 + i * 0.7) * 1.2;
     });
+
+    if (skyLogo) {
+      const bob = Math.sin(t * 0.8) * 4;
+      skyLogo.position.y = SKY_BASE_Y + bob;
+      if (skyGlow && skyGlow.visible) {
+        skyGlow.position.y = SKY_BASE_Y + bob;
+        const pulse = 0.35 + 0.22 * Math.sin(t * 1.3);
+        skyGlow.material.opacity = discoMode ? pulse * 1.7 : pulse;
+        const gs = 56 + Math.sin(t * 1.3) * 8 + (discoMode ? 14 : 0);
+        skyGlow.scale.set(gs, gs, 1);
+      }
+    }
 
     flowEmitters.forEach((f) => {
       const fade = getHemisphereFade(f.bearing, adjustedHeading);
@@ -920,6 +963,7 @@ function createARScene() {
   }
 
   animate();
+  setupControlBar();
 
   function handleResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -929,6 +973,51 @@ function createARScene() {
   }
   window.addEventListener('resize', handleResize);
   window.addEventListener('orientationchange', () => setTimeout(handleResize, 200));
+}
+
+function setupControlBar() {
+  const bar = document.getElementById('ar-controls');
+  if (!bar) return;
+  const PRIMARY = { 'disco-btn': 'Disco', 'snap-btn': 'Snap', 'q-launch': 'Quest', 'q-booth': 'Photo Booth' };
+  const PRIMARY_ORDER = ['disco-btn', 'snap-btn', 'q-launch', 'q-booth'];
+  const SECONDARY = ['recalibrate-btn', 'light-btn', 'test-btn'];
+
+  let moreBtn = document.getElementById('tl-more');
+  let panel = document.getElementById('tl-more-panel');
+  if (!moreBtn) {
+    moreBtn = document.createElement('button');
+    moreBtn.id = 'tl-more';
+    moreBtn.className = 'tl-chip';
+    moreBtn.setAttribute('data-label', 'More');
+    moreBtn.setAttribute('aria-label', 'More options');
+    panel = document.createElement('div');
+    panel.id = 'tl-more-panel';
+    document.body.appendChild(panel);
+    moreBtn.addEventListener('click', (e) => { e.stopPropagation(); panel.classList.toggle('open'); });
+    panel.addEventListener('click', (e) => { if (e.target.tagName === 'BUTTON') panel.classList.remove('open'); });
+    document.addEventListener('click', (e) => {
+      if (panel.classList.contains('open') && !panel.contains(e.target) && e.target !== moreBtn) panel.classList.remove('open');
+    });
+  }
+
+  function apply() {
+    Object.keys(PRIMARY).forEach((id) => {
+      const b = document.getElementById(id);
+      if (b) { b.classList.add('tl-chip'); b.setAttribute('data-label', PRIMARY[id]); }
+    });
+    SECONDARY.forEach((id) => {
+      const b = document.getElementById(id);
+      if (b && b.parentElement !== panel) { b.classList.remove('tl-chip'); panel.appendChild(b); }
+    });
+    const desired = PRIMARY_ORDER.map((id) => document.getElementById(id)).filter(Boolean);
+    desired.push(moreBtn);
+    const cur = Array.prototype.slice.call(bar.children);
+    let needReorder = cur.length !== desired.length;
+    if (!needReorder) { for (let i = 0; i < desired.length; i++) { if (cur[i] !== desired[i]) { needReorder = true; break; } } }
+    if (needReorder) desired.forEach((el) => bar.appendChild(el));
+  }
+  apply();
+  new MutationObserver(apply).observe(bar, { childList: true });
 }
 
 async function init() {
