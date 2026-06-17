@@ -9,7 +9,8 @@
  *
  *  SELFIE camera -> "Photo Booth": beams are hidden (no logos over faces); a
  *                  branded frame with your PARTY LOGO + copy appears; the
- *                  shutter saves a clean watermarked photo for the photo wall.
+ *                  shutter saves a clean watermarked photo, and "Send to wall"
+ *                  uploads it to the live photo wall.
  *
  * Decoupled: draws its OWN UI + confetti, reads the live calibrated heading
  * from `window.__skyHeading` (set by ar-main.js).
@@ -169,6 +170,13 @@ function injectStyles() {
   #q-photo .cap:active { transform:scale(.92); }
   #q-photo .back { background:rgba(10,8,25,.72); color:#fff; border:1px solid rgba(255,255,255,.2); border-radius:999px;
     padding:12px 18px; font-weight:700; font-size:15px; cursor:pointer; backdrop-filter:blur(8px); }
+  #q-photo .wall { background:linear-gradient(135deg,#7c3aed,#2dd4bf); color:#fff; border:none; border-radius:999px;
+    padding:12px 18px; font-weight:800; font-size:15px; cursor:pointer; box-shadow:0 6px 20px rgba(124,58,237,.5); }
+  #q-photo .wall:active { transform:scale(.95); }
+  #q-photo .toast { position:absolute; bottom:212px; left:50%; transform:translateX(-50%) translateY(8px); opacity:0;
+    background:rgba(10,8,25,.92); color:#fff; padding:10px 18px; border-radius:999px; font-weight:700; font-size:14px;
+    transition:opacity .25s, transform .25s; pointer-events:none; border:1px solid rgba(255,255,255,.16); white-space:nowrap; }
+  #q-photo .toast.on { opacity:1; transform:translateX(-50%) translateY(0); }
   `;
   const s = document.createElement('style');
   s.textContent = css;
@@ -211,8 +219,10 @@ function buildUI() {
       <div class="band"><h3 id="q-photo-title"></h3><p id="q-photo-sub"></p></div>
       <div class="actions">
         <button class="back" id="q-photo-back">← Back to AR</button>
-        <button class="cap" id="q-photo-cap" aria-label="Take photo"></button>
+        <button class="cap" id="q-photo-cap" aria-label="Save photo"></button>
+        <button class="wall" id="q-photo-wall">📤 Send to wall</button>
       </div>
+      <div class="toast" id="q-toast"></div>
     </div>`;
   document.body.appendChild(photoFrag.firstElementChild);
 
@@ -248,6 +258,7 @@ function buildUI() {
   logoEl.onerror = () => { logoEl.style.display = 'none'; };
   document.getElementById('q-photo-back').addEventListener('click', exitBooth);
   document.getElementById('q-photo-cap').addEventListener('click', captureBooth);
+  document.getElementById('q-photo-wall').addEventListener('click', sendToWall);
 
   sizeFx();
   window.addEventListener('resize', sizeFx);
@@ -328,15 +339,22 @@ partyImg.onerror = () => { partyReady = false; };
 partyImg.src = PHOTO.logo;
 
 function captureBooth() {
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(doCaptureBooth);
-  else doCaptureBooth();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(saveBoothPhoto);
+  else saveBoothPhoto();
 }
-function doCaptureBooth() {
+function sendToWall() {
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(doSendToWall);
+  else doSendToWall();
+}
+
+/* build the branded photo canvas; pass maxDim to cap longest edge (for upload) */
+function buildBoothCanvas(maxDim) {
   const video = document.getElementById('camera-feed');
-  if (!video) return;
+  if (!video) return null;
   const W = window.innerWidth, H = window.innerHeight;
   const scale = Math.min(window.devicePixelRatio || 1, 2);
-  const cw = Math.round(W * scale), ch = Math.round(H * scale);
+  let cw = Math.round(W * scale), ch = Math.round(H * scale);
+  if (maxDim) { const f = Math.min(1, maxDim / Math.max(cw, ch)); cw = Math.round(cw * f); ch = Math.round(ch * f); }
   const out = document.createElement('canvas');
   out.width = cw; out.height = ch;
   const ctx = out.getContext('2d');
@@ -403,12 +421,27 @@ function doCaptureBooth() {
     ctx.fillText(PHOTO.tag, px + padX, py + phh / 2);
     ctx.textBaseline = 'alphabetic';
   }
+  return out;
+}
 
-  // shutter flash
+function boothFlash() {
   ui.flash.style.background = '#fff'; ui.flash.style.opacity = '0.85';
   setTimeout(() => { ui.flash.style.opacity = '0'; ui.flash.style.background = ''; }, 180);
+}
+let toastTimer = 0;
+function boothToast(msg) {
+  const t = document.getElementById('q-toast');
+  if (!t) return;
+  t.textContent = msg; t.classList.add('on');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('on'), 2600);
+}
 
-  // 6. export -> share / download
+/* shutter = save the photo to the guest's own phone */
+function saveBoothPhoto() {
+  const out = buildBoothCanvas(null);
+  if (!out) return;
+  boothFlash();
   out.toBlob((blob) => {
     if (!blob) return;
     const file = new File([blob], 'truelayer-photobooth.jpg', { type: 'image/jpeg' });
@@ -422,6 +455,23 @@ function doCaptureBooth() {
       setTimeout(() => URL.revokeObjectURL(a.href), 2000);
     }
   }, 'image/jpeg', 0.92);
+}
+
+/* "Send to wall" = explicit consent to upload to the live photo wall */
+function doSendToWall() {
+  const out = buildBoothCanvas(1280);
+  if (!out) return;
+  boothFlash();
+  boothToast('Sending to the wall…');
+  const dataUrl = out.toDataURL('image/jpeg', 0.82);
+  fetch('/api/upload', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ image: dataUrl })
+  })
+    .then((r) => (r.ok ? r.json() : Promise.reject(r)))
+    .then(() => boothToast('✨ On the wall!'))
+    .catch(() => boothToast('Upload failed — try again'));
 }
 
 /* ===== game state machine =============================================== */
