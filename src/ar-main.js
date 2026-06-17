@@ -838,6 +838,7 @@ function createARScene() {
   const smoothQuat = new THREE.Quaternion();
   let quatReady = false;
   const camEuler = new THREE.Euler();
+  const _fwd = new THREE.Vector3();
 
   /* -- HERO: party logo floating, facing you & glowing in the sky above Sky Garden -- */
   let skyLogo = null, skyGlow = null, skyGlowW = 200, skyGlowH = 150;
@@ -881,9 +882,14 @@ function createARScene() {
     camEuler.setFromQuaternion(smoothQuat, 'YXZ');
     const counterRoll = -camEuler.z;
 
+    // Cull by where the camera ACTUALLY looks (stable in any orientation / tilt),
+    // not the raw compass heading (which flips when the phone pitches up in portrait).
+    _fwd.set(0, 0, -1).applyQuaternion(camera.quaternion);
+    const camAz = (Math.atan2(_fwd.x, -_fwd.z) * 180 / Math.PI + 360) % 360;
+
     let visibleCount = 0;
     beamEntries.forEach((b, i) => {
-      const fade = getHemisphereFade(b.bearing, adjustedHeading);
+      const fade = getHemisphereFade(b.bearing, camAz);
       b.group.visible = fade > 0.01;
       if (!b.group.visible) return;
       visibleCount++;
@@ -937,7 +943,7 @@ function createARScene() {
     }
 
     flowEmitters.forEach((f) => {
-      const fade = getHemisphereFade(f.bearing, adjustedHeading);
+      const fade = getHemisphereFade(f.bearing, camAz);
       const vis = fade > 0.01;
       f.layers.forEach((layer) => { layer.visible = vis && (layer.material.opacity > 0.001); });
       if (!vis) return;

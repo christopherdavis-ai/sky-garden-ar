@@ -169,15 +169,15 @@ function injectStyles() {
     background:rgba(6,6,6,.6); color:#fff; border:1px solid rgba(175,173,255,.55);
     backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); cursor:pointer; }
   #q-photo .rot:active { transform:scale(.9); }
-  #q-photo .actions { position:absolute; left:0; right:0; bottom:128px; display:flex; gap:18px; align-items:center;
-    justify-content:center; pointer-events:auto; }
+  #q-photo .actions { position:absolute; left:0; right:0; bottom:152px; display:flex; gap:14px; align-items:center;
+    justify-content:center; pointer-events:auto; padding:0 12px; box-sizing:border-box; }
   #q-photo .cap { width:76px; height:76px; border-radius:50%; background:#fff; border:none; cursor:pointer;
     box-shadow:0 0 0 4px rgba(255,255,255,.45), 0 6px 20px rgba(0,0,0,.4); }
   #q-photo .cap:active { transform:scale(.92); }
   #q-photo .back { background:rgba(6,6,6,.66); color:#fff; border:1.5px solid rgba(175,173,255,.6); border-radius:12px;
-    padding:12px 18px; font-weight:700; font-size:15px; cursor:pointer; backdrop-filter:blur(8px); }
+    padding:12px 16px; font-weight:700; font-size:14px; cursor:pointer; backdrop-filter:blur(8px); white-space:nowrap; }
   #q-photo .wall { background:#AFADFF; color:#060606; border:none; border-radius:12px;
-    padding:12px 18px; font-weight:800; font-size:15px; cursor:pointer; box-shadow:0 6px 20px rgba(77,59,216,.45); }
+    padding:12px 16px; font-weight:800; font-size:14px; cursor:pointer; box-shadow:0 6px 20px rgba(77,59,216,.45); white-space:nowrap; }
   #q-photo .wall:active { transform:scale(.95); }
   #q-photo .toast { position:absolute; bottom:212px; left:50%; transform:translateX(-50%) translateY(8px); opacity:0;
     background:rgba(6,6,6,.92); color:#fff; padding:10px 18px; border-radius:10px; font-weight:700; font-size:14px;
