@@ -1,16 +1,18 @@
 /* ============================================================================
- * Sky Garden AR — "Find Your Client" Quest  (self-contained add-on)
+ * Sky Garden AR — "Find Your Client" Quest  +  Photo Booth  (self-contained)
  * ----------------------------------------------------------------------------
- * A party mini-game layered on top of the existing AR view:
- *   1. Shows a RANDOM client/bank logo  ->  "Find Stripe!"
- *   2. A Hot/Cold RADAR reticle guides you to sweep the camera to its beam
- *   3. Hold the beam in the centre for a beat  ->  LOCK  ->  celebration
- *   4. Find 5 in 60 seconds. Beat the clock, share the moment.
+ * TWO experiences, one file:
  *
- * Plus a CAMERA FLIP (rear <-> selfie) button.
+ *  REAR camera  -> "AR Hunt": shows a random client/bank logo, a Hot/Cold radar
+ *                  reticle guides you to its beam, hold centre to LOCK ->
+ *                  celebration. Find 5 in 60s.
  *
- * This file is fully decoupled: it draws its OWN UI + confetti, and reads the
- * live calibrated camera heading from `window.__skyHeading` (set by ar-main.js).
+ *  SELFIE camera -> "Photo Booth": beams are hidden (no logos over faces); a
+ *                  branded frame with your PARTY LOGO + copy appears; the
+ *                  shutter saves a clean watermarked photo for the photo wall.
+ *
+ * Decoupled: draws its OWN UI + confetti, reads the live calibrated heading
+ * from `window.__skyHeading` (set by ar-main.js).
  * ========================================================================== */
 
 import clients from './data/clients.json';
@@ -18,6 +20,18 @@ import banks from './data/banks.json';
 
 /* ---- shared geo constants (must match ar-main.js) ---------------------- */
 const SKY_GARDEN = { lat: 51.511398, lng: -0.083507 };
+
+/* =====  PHOTO BOOTH — EDIT THESE  ======================================= *
+ * Upload your party logo to the repo at:  public/party-logo.png
+ * (Vercel serves the public/ folder at the site root, so '/party-logo.png'.)
+ * Change the filename below if you name it something else.                  */
+const PHOTO = {
+  logo:     '/party.png',            // <- your party logo
+  title:    'TrueLayer is 10!',           // <- big line of copy
+  subtitle: 'Sky Garden · Summer 2026',   // <- smaller line of copy
+  tag:      '#TrueLayer10'                 // <- corner pill ('' to hide)
+};
+/* ======================================================================== */
 
 function getBearing(lat1, lng1, lat2, lng2) {
   const toRad = Math.PI / 180;
@@ -70,7 +84,7 @@ const GAME = {
 /* ===== UI ================================================================ */
 function injectStyles() {
   const css = `
-  #q-launch, #q-flip {
+  #q-launch, #q-booth {
     background: rgba(18,14,38,0.78); color:#fff; border:1px solid rgba(255,255,255,0.18);
     border-radius: 999px; padding: 9px 14px; font: 600 14px/1 -apple-system,BlinkMacSystemFont,sans-serif;
     backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); cursor:pointer; white-space:nowrap;
@@ -109,7 +123,7 @@ function injectStyles() {
     background:rgba(255,255,255,.92); color:#1a1340; border:none; border-radius:999px; padding:10px 18px; font-weight:700;
     font-size:14px; cursor:pointer; display:none; }
   #q-hint-btn.on { display:block; }
-  /* celebration + end cards */
+  /* celebration */
   #q-fx { position:fixed; inset:0; z-index:60; pointer-events:none; }
   #q-flash { position:fixed; inset:0; z-index:55; opacity:0; pointer-events:none; transition:opacity .25s; }
   #q-shock { position:fixed; top:50%; left:50%; width:40px; height:40px; border-radius:50%; transform:translate(-50%,-50%) scale(0);
@@ -129,6 +143,29 @@ function injectStyles() {
     border-radius:999px; padding:13px 26px; font-size:16px; font-weight:700; cursor:pointer; width:100%; }
   #q-card .ghost { background:transparent; border:1px solid rgba(255,255,255,.25); margin-top:10px; }
   body.selfie-mode #camera-feed { transform: scaleX(-1); }
+  /* ---- PHOTO BOOTH ---- */
+  #q-photo { position:fixed; inset:0; z-index:50; display:none; pointer-events:none;
+    font-family:-apple-system,BlinkMacSystemFont,sans-serif; }
+  #q-photo.on { display:block; }
+  #q-photo .frame { position:absolute; inset:0; border:6px solid rgba(255,255,255,.92); box-sizing:border-box;
+    box-shadow: inset 0 0 0 2px rgba(124,58,237,.85); }
+  #q-photo .toplogo { position:absolute; top:20px; left:50%; transform:translateX(-50%); max-width:48vw; max-height:13vh;
+    object-fit:contain; filter:drop-shadow(0 2px 10px rgba(0,0,0,.55)); }
+  #q-photo .tag { position:absolute; top:18px; right:18px; background:rgba(124,58,237,.88); color:#fff; font-weight:700;
+    font-size:13px; padding:6px 12px; border-radius:999px; }
+  #q-photo .band { position:absolute; left:0; right:0; bottom:0; padding:54px 20px 26px; text-align:center; color:#fff;
+    background:linear-gradient(0deg, rgba(8,6,20,.82), transparent); }
+  #q-photo .band h3 { margin:0; font-size:25px; font-weight:800; text-shadow:0 1px 6px rgba(0,0,0,.6); }
+  #q-photo .band p { margin:5px 0 0; font-size:15px; color:rgba(255,255,255,.9); }
+  #q-photo .hint { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); color:rgba(255,255,255,.85);
+    font-weight:700; font-size:15px; text-shadow:0 1px 6px rgba(0,0,0,.7); pointer-events:none; }
+  #q-photo .actions { position:absolute; left:0; right:0; bottom:128px; display:flex; gap:18px; align-items:center;
+    justify-content:center; pointer-events:auto; }
+  #q-photo .cap { width:76px; height:76px; border-radius:50%; background:#fff; border:none; cursor:pointer;
+    box-shadow:0 0 0 4px rgba(255,255,255,.45), 0 6px 20px rgba(0,0,0,.4); }
+  #q-photo .cap:active { transform:scale(.92); }
+  #q-photo .back { background:rgba(10,8,25,.72); color:#fff; border:1px solid rgba(255,255,255,.2); border-radius:999px;
+    padding:12px 18px; font-weight:700; font-size:15px; cursor:pointer; backdrop-filter:blur(8px); }
   `;
   const s = document.createElement('style');
   s.textContent = css;
@@ -160,6 +197,22 @@ function buildUI() {
   document.body.appendChild(el(`<canvas id="q-fx"></canvas>`));
   document.body.appendChild(el(`<div id="q-card"><div class="box" id="q-card-box"></div></div>`));
 
+  // Photo Booth overlay
+  const photoFrag = el(`<div></div>`);
+  photoFrag.innerHTML = `
+    <div id="q-photo">
+      <div class="frame"></div>
+      <img class="toplogo" id="q-photo-logo" alt=""/>
+      <div class="tag" id="q-photo-tag"></div>
+      <div class="hint" id="q-photo-hint">📸 Strike a pose!</div>
+      <div class="band"><h3 id="q-photo-title"></h3><p id="q-photo-sub"></p></div>
+      <div class="actions">
+        <button class="back" id="q-photo-back">← Back to AR</button>
+        <button class="cap" id="q-photo-cap" aria-label="Take photo"></button>
+      </div>
+    </div>`;
+  document.body.appendChild(photoFrag.firstElementChild);
+
   ui = {
     hud: document.getElementById('q-hud'),
     name: document.getElementById('q-name'),
@@ -177,9 +230,22 @@ function buildUI() {
     bigimg: document.getElementById('q-bigimg'),
     fx: document.getElementById('q-fx'),
     card: document.getElementById('q-card'),
-    cardBox: document.getElementById('q-card-box')
+    cardBox: document.getElementById('q-card-box'),
+    photo: document.getElementById('q-photo')
   };
   ui.hintBtn.addEventListener('click', showHint);
+
+  // populate photo booth copy + wire buttons
+  document.getElementById('q-photo-title').textContent = PHOTO.title || '';
+  document.getElementById('q-photo-sub').textContent = PHOTO.subtitle || '';
+  const tagEl = document.getElementById('q-photo-tag');
+  if (PHOTO.tag) tagEl.textContent = PHOTO.tag; else tagEl.style.display = 'none';
+  const logoEl = document.getElementById('q-photo-logo');
+  logoEl.src = PHOTO.logo;
+  logoEl.onerror = () => { logoEl.style.display = 'none'; };
+  document.getElementById('q-photo-back').addEventListener('click', exitBooth);
+  document.getElementById('q-photo-cap').addEventListener('click', captureBooth);
+
   sizeFx();
   window.addEventListener('resize', sizeFx);
 }
@@ -188,34 +254,161 @@ function addControlButtons() {
   const controls = document.getElementById('ar-controls');
   if (!controls) return;
   const launch = el(`<button id="q-launch">🎯 Quest</button>`);
-  const flip = el(`<button id="q-flip">🤳 Selfie</button>`);
+  const booth = el(`<button id="q-booth">🤳 Photo Booth</button>`);
   launch.addEventListener('click', toggleGame);
-  flip.addEventListener('click', flipCamera);
+  booth.addEventListener('click', enterBooth);
   controls.appendChild(launch);
-  controls.appendChild(flip);
+  controls.appendChild(booth);
   ui.launch = launch;
-  ui.flip = flip;
+  ui.booth = booth;
 }
 
-/* ===== camera flip (rear <-> selfie) ===================================== */
+/* ===== camera + Photo Booth ============================================= */
 let facing = 'environment';
-async function flipCamera() {
+let photoMode = false;
+
+async function setFacing(f) {
   const video = document.getElementById('camera-feed');
-  if (!video) return;
-  facing = facing === 'environment' ? 'user' : 'environment';
+  if (!video) return false;
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: facing, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false
+      video: { facingMode: f, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false
     });
     const old = video.srcObject;
     if (old) old.getTracks().forEach((t) => t.stop());
     video.srcObject = stream;
     await video.play();
-    document.body.classList.toggle('selfie-mode', facing === 'user');
-    ui.flip.textContent = facing === 'user' ? '📷 Rear' : '🤳 Selfie';
+    facing = f;
+    document.body.classList.toggle('selfie-mode', f === 'user');
+    return true;
   } catch (e) {
-    facing = facing === 'user' ? 'environment' : 'user'; // revert flag on failure
+    return false;
   }
+}
+
+function setBeamsVisible(v) {
+  const c = document.getElementById('ar-canvas');
+  if (c) c.style.visibility = v ? '' : 'hidden';
+}
+function setARChrome(show) {
+  setBeamsVisible(show);
+  ['ar-controls', 'hud', 'exit-fs-btn'].forEach((id) => {
+    const e = document.getElementById(id);
+    if (e) e.style.display = show ? '' : 'none';
+  });
+}
+
+async function enterBooth() {
+  if (state === 'playing' || state === 'celebrating') stopGame();
+  photoMode = true;
+  setARChrome(false);          // hide beams + AR controls + HUD
+  ui.photo.classList.add('on');
+  const ok = await setFacing('user');
+  if (!ok) { // selfie camera unavailable -> bail back to AR
+    photoMode = false;
+    ui.photo.classList.remove('on');
+    setARChrome(true);
+  }
+}
+async function exitBooth() {
+  photoMode = false;
+  ui.photo.classList.remove('on');
+  await setFacing('environment');
+  setARChrome(true);
+}
+
+/* preload the party logo for canvas capture */
+let partyImg = new Image();
+let partyReady = false;
+partyImg.onload = () => { partyReady = true; };
+partyImg.onerror = () => { partyReady = false; };
+partyImg.src = PHOTO.logo;
+
+function captureBooth() {
+  const video = document.getElementById('camera-feed');
+  if (!video) return;
+  const W = window.innerWidth, H = window.innerHeight;
+  const scale = Math.min(window.devicePixelRatio || 1, 2);
+  const cw = Math.round(W * scale), ch = Math.round(H * scale);
+  const out = document.createElement('canvas');
+  out.width = cw; out.height = ch;
+  const ctx = out.getContext('2d');
+
+  // 1. mirrored selfie video, cover-fit
+  const vw = video.videoWidth || W, vh = video.videoHeight || H;
+  const cover = Math.max(cw / vw, ch / vh);
+  const dw = vw * cover, dh = vh * cover;
+  ctx.save();
+  ctx.translate(cw, 0); ctx.scale(-1, 1);
+  ctx.drawImage(video, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
+  ctx.restore();
+
+  // 2. white frame + purple inner line
+  const bw = Math.max(5, Math.round(cw * 0.012));
+  ctx.strokeStyle = 'rgba(255,255,255,0.92)'; ctx.lineWidth = bw;
+  ctx.strokeRect(bw / 2, bw / 2, cw - bw, ch - bw);
+  ctx.strokeStyle = 'rgba(124,58,237,0.85)'; ctx.lineWidth = Math.max(2, bw * 0.35);
+  const ip = bw * 1.3;
+  ctx.strokeRect(ip, ip, cw - ip * 2, ch - ip * 2);
+
+  // 3. bottom copy band
+  const bandH = Math.round(ch * 0.16);
+  const g = ctx.createLinearGradient(0, ch - bandH, 0, ch);
+  g.addColorStop(0, 'rgba(8,6,20,0)'); g.addColorStop(1, 'rgba(8,6,20,0.82)');
+  ctx.fillStyle = g; ctx.fillRect(0, ch - bandH, cw, bandH);
+  ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
+  const tSize = Math.round(ch * 0.042);
+  ctx.font = '800 ' + tSize + 'px -apple-system,BlinkMacSystemFont,sans-serif';
+  ctx.fillText(PHOTO.title || '', cw / 2, ch - Math.round(bandH * (PHOTO.subtitle ? 0.5 : 0.32)));
+  if (PHOTO.subtitle) {
+    const sSize = Math.round(ch * 0.028);
+    ctx.font = '500 ' + sSize + 'px -apple-system,BlinkMacSystemFont,sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.fillText(PHOTO.subtitle, cw / 2, ch - Math.round(bandH * 0.18));
+  }
+
+  // 4. party logo (top centre)
+  if (partyReady) {
+    const maxW = cw * 0.46, maxH = ch * 0.14;
+    const ar = (partyImg.naturalWidth / partyImg.naturalHeight) || 3;
+    let lw = maxW, lh = lw / ar;
+    if (lh > maxH) { lh = maxH; lw = lh * ar; }
+    ctx.drawImage(partyImg, (cw - lw) / 2, ch * 0.04, lw, lh);
+  }
+
+  // 5. tag pill (top-right)
+  if (PHOTO.tag) {
+    const pSize = Math.round(ch * 0.024);
+    ctx.font = '700 ' + pSize + 'px -apple-system,BlinkMacSystemFont,sans-serif';
+    const tw = ctx.measureText(PHOTO.tag).width;
+    const padX = pSize * 0.9, padY = pSize * 0.6;
+    const pw = tw + padX * 2, phh = pSize + padY * 2;
+    const px = cw - pw - cw * 0.03, py = ch * 0.035;
+    ctx.fillStyle = 'rgba(124,58,237,0.9)';
+    ctx.beginPath(); ctx.roundRect(px, py, pw, phh, phh / 2); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText(PHOTO.tag, px + padX, py + phh / 2);
+    ctx.textBaseline = 'alphabetic';
+  }
+
+  // shutter flash
+  ui.flash.style.background = '#fff'; ui.flash.style.opacity = '0.85';
+  setTimeout(() => { ui.flash.style.opacity = '0'; ui.flash.style.background = ''; }, 180);
+
+  // 6. export -> share / download
+  out.toBlob((blob) => {
+    if (!blob) return;
+    const file = new File([blob], 'truelayer-photobooth.jpg', { type: 'image/jpeg' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: 'TrueLayer Sky Garden' }).catch(() => {});
+    } else {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'truelayer-photobooth.jpg';
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    }
+  }, 'image/jpeg', 0.92);
 }
 
 /* ===== game state machine =============================================== */
@@ -253,8 +446,7 @@ function toggleGame() {
 }
 function startGame() {
   if (typeof window.__skyHeading !== 'number') {
-    ui && ui.launch && (ui.launch.textContent = 'Calibrate first');
-    setTimeout(() => { if (ui.launch) ui.launch.textContent = '🎯 Quest'; }, 1500);
+    if (ui.launch) { ui.launch.textContent = 'Calibrate first'; setTimeout(() => { if (ui.launch) ui.launch.textContent = '🎯 Quest'; }, 1500); }
     return;
   }
   if (POOL.length === 0) return;
@@ -286,39 +478,32 @@ function loop() {
     if (state !== 'playing') return;
     const now = performance.now();
 
-    // timer
     const remaining = Math.max(0, endAt - now);
     const secs = Math.ceil(remaining / 1000);
     ui.time.textContent = secs;
     ui.timePill.classList.toggle('warn', secs <= 10);
     if (remaining <= 0) { endGame(false); return; }
 
-    // hint availability
     if (now - targetShownAt > GAME.hintAfterMs) ui.hintBtn.classList.add('on');
 
     const heading = window.__skyHeading;
     if (typeof heading === 'number' && target) {
-      const d = angularDiff(target.bearing, heading);   // degrees; + = to the right
+      const d = angularDiff(target.bearing, heading);   // + = to the right
       const adist = Math.abs(d);
 
-      // arrow: point toward target; hide when basically centred
-      const rot = d; // 0 = up/ahead, + rotates clockwise
-      ui.arrow.style.transform = `rotate(${rot}deg)`;
+      ui.arrow.style.transform = `rotate(${d}deg)`;
       ui.arrow.style.opacity = adist < GAME.lockDeg ? '0' : '1';
 
-      // hot/cold proximity (0 far .. 1 dead-on)
       const prox = Math.max(0, 1 - adist / 90);
       ui.prox.style.width = (prox * 100).toFixed(0) + '%';
       const hot = hotColor(prox);
       ui.prox.style.background = hot;
       ui.ring.style.borderColor = adist < GAME.lockDeg ? '#2dd4bf' : hot;
 
-      // guidance message
       if (adist > 120) ui.msg.textContent = '↩︎ Turn around';
       else if (adist > GAME.lockDeg) ui.msg.textContent = (d > 0 ? '➡︎ warmer to the right' : '⬅︎ warmer to the left');
       else ui.msg.textContent = '🔥 HOT — hold it!';
 
-      // lock detection
       if (adist < GAME.lockDeg) {
         ui.ring.classList.add('lock');
         if (!onTargetSince) onTargetSince = now;
@@ -349,13 +534,13 @@ function found() {
   foundCount++;
   ui.found.textContent = `${foundCount}/${GAME.targets}`;
   ui.ring.classList.remove('lock');
-  pausedRemaining = Math.max(0, endAt - performance.now()); // freeze clock during celebration
+  pausedRemaining = Math.max(0, endAt - performance.now());
 
   celebrate(target);
 
   setTimeout(() => {
     if (foundCount >= GAME.targets) { endGame(true); return; }
-    endAt = performance.now() + pausedRemaining; // resume clock
+    endAt = performance.now() + pausedRemaining;
     state = 'playing';
     nextTarget();
     loop();
@@ -364,11 +549,9 @@ function found() {
 
 function celebrate(t) {
   const col = t.color || '#7c3aed';
-  // flash
   ui.flash.style.background = `radial-gradient(circle at 50% 50%, ${col}66, transparent 70%)`;
   ui.flash.style.opacity = '1';
   setTimeout(() => { ui.flash.style.opacity = '0'; }, 260);
-  // shockwave ring
   ui.shock.style.border = `4px solid ${col}`;
   ui.shock.style.transition = 'none';
   ui.shock.style.transform = 'translate(-50%,-50%) scale(0)';
@@ -378,7 +561,6 @@ function celebrate(t) {
     ui.shock.style.transform = 'translate(-50%,-50%) scale(14)';
     ui.shock.style.opacity = '0';
   });
-  // logo zoom
   if (t.logo) {
     ui.bigimg.src = t.logo;
     ui.bigimg.style.transition = 'none';
@@ -395,7 +577,7 @@ function celebrate(t) {
   ui.msg.textContent = '✨ Found ' + t.name + '!';
 }
 
-/* ---- confetti (own canvas, independent of ar-main's) ------------------- */
+/* ---- confetti (own canvas) -------------------------------------------- */
 let parts = [];
 function sizeFx() {
   if (!ui.fx) return;
@@ -453,7 +635,7 @@ function endGame(won) {
   const elapsed = won ? (GAME.seconds - Math.ceil(pausedRemaining / 1000)) : GAME.seconds;
   ui.cardBox.innerHTML = won
     ? `<h2>🏆 Nailed it!</h2><div class="big">${foundCount}/${GAME.targets}</div>
-       <p>All found in ${elapsed}s.</p><p>Tap 📸 Snap to grab a photo with the beams!</p>
+       <p>All found in ${elapsed}s.</p><p>Try the 🤳 Photo Booth for the wall!</p>
        <button id="q-again">Play again</button><button id="q-close" class="ghost">Done</button>`
     : `<h2>⏰ Time!</h2><div class="big">${foundCount}/${GAME.targets}</div>
        <p>${foundCount >= 3 ? 'So close — go again!' : 'Warm up and try again!'}</p>
