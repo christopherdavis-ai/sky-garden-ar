@@ -164,6 +164,11 @@ function injectStyles() {
   #q-photo .band p { margin:5px 0 0; font-size:15px; color:rgba(255,255,255,.9); }
   #q-photo .hint { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); color:rgba(255,255,255,.85);
     font-weight:700; font-size:15px; text-shadow:0 1px 6px rgba(0,0,0,.7); pointer-events:none; }
+  #q-photo .rot { position:absolute; top:74px; right:16px; z-index:2; pointer-events:auto;
+    width:48px; height:48px; border-radius:50%; font-size:22px; line-height:1;
+    background:rgba(6,6,6,.6); color:#fff; border:1px solid rgba(175,173,255,.55);
+    backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); cursor:pointer; }
+  #q-photo .rot:active { transform:scale(.9); }
   #q-photo .actions { position:absolute; left:0; right:0; bottom:128px; display:flex; gap:18px; align-items:center;
     justify-content:center; pointer-events:auto; }
   #q-photo .cap { width:76px; height:76px; border-radius:50%; background:#fff; border:none; cursor:pointer;
@@ -229,6 +234,7 @@ function buildUI() {
       <img class="toplogo" id="q-photo-logo" alt=""/>
       <div class="tag" id="q-photo-tag"></div>
       <div class="hint" id="q-photo-hint">📸 Strike a pose!</div>
+      <button class="rot" id="q-photo-rot" aria-label="Rotate camera">🔄</button>
       <div class="band"><h3 id="q-photo-title"></h3><p id="q-photo-sub"></p></div>
       <div class="actions">
         <button class="back" id="q-photo-back">← Back to AR</button>
@@ -272,6 +278,9 @@ function buildUI() {
   document.getElementById('q-photo-back').addEventListener('click', exitBooth);
   document.getElementById('q-photo-cap').addEventListener('click', captureBooth);
   document.getElementById('q-photo-wall').addEventListener('click', sendToWall);
+  document.getElementById('q-photo-rot').addEventListener('click', rotateSelfie);
+  window.addEventListener('resize', () => { if (document.body.classList.contains('selfie-mode')) applySelfieTransform(); });
+  window.addEventListener('orientationchange', () => setTimeout(() => { if (document.body.classList.contains('selfie-mode')) applySelfieTransform(); }, 200));
 
   sizeFx();
   window.addEventListener('resize', sizeFx);
@@ -293,6 +302,24 @@ function addControlButtons() {
 /* ===== camera + Photo Booth ============================================= */
 let facing = 'environment';
 let photoMode = false;
+let selfieRot = (function () { const v = parseInt(localStorage.getItem('tlSelfieRot'), 10); return isNaN(v) ? 0 : v; })();
+let selfieAuto = (localStorage.getItem('tlSelfieRot') == null);
+
+function applySelfieTransform() {
+  const video = document.getElementById('camera-feed');
+  if (!video || !document.body.classList.contains('selfie-mode')) return;
+  const sw = window.innerWidth, sh = window.innerHeight;
+  const r = ((selfieRot % 360) + 360) % 360;
+  const k = (r === 90 || r === 270) ? Math.max(sw / sh, sh / sw) : 1;
+  video.style.transformOrigin = 'center center';
+  video.style.transform = 'scale(' + (-k) + ',' + k + ') rotate(' + r + 'deg)';
+}
+function rotateSelfie() {
+  selfieRot = (selfieRot + 90) % 360;
+  selfieAuto = false;
+  try { localStorage.setItem('tlSelfieRot', String(selfieRot)); } catch (e) {}
+  applySelfieTransform();
+}
 
 async function setFacing(f) {
   const video = document.getElementById('camera-feed');
@@ -306,7 +333,23 @@ async function setFacing(f) {
     video.srcObject = stream;
     await video.play();
     facing = f;
-    document.body.classList.toggle('selfie-mode', f === 'user');
+    const selfie = (f === 'user');
+    document.body.classList.toggle('selfie-mode', selfie);
+    if (selfie) {
+      const orient = () => {
+        if (selfieAuto) {
+          const vw = video.videoWidth, vh = video.videoHeight;
+          const portrait = window.innerHeight >= window.innerWidth;
+          if (vw && vh) selfieRot = ((vw > vh) === portrait) ? 90 : 0;
+        }
+        applySelfieTransform();
+      };
+      orient();
+      video.addEventListener('loadedmetadata', orient, { once: true });
+      setTimeout(orient, 250);
+    } else {
+      video.style.transform = '';
+    }
     return true;
   } catch (e) {
     return false;
@@ -372,13 +415,19 @@ function buildBoothCanvas(maxDim) {
   out.width = cw; out.height = ch;
   const ctx = out.getContext('2d');
 
-  // 1. mirrored selfie video, cover-fit
+  // 1. mirrored + orientation-corrected selfie video, cover-fit
   const vw = video.videoWidth || W, vh = video.videoHeight || H;
-  const cover = Math.max(cw / vw, ch / vh);
+  const r = ((selfieRot % 360) + 360) % 360;
+  const rad = r * Math.PI / 180;
+  const tw = (r === 90 || r === 270) ? ch : cw;
+  const th = (r === 90 || r === 270) ? cw : ch;
+  const cover = Math.max(tw / vw, th / vh);
   const dw = vw * cover, dh = vh * cover;
   ctx.save();
-  ctx.translate(cw, 0); ctx.scale(-1, 1);
-  ctx.drawImage(video, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
+  ctx.translate(cw / 2, ch / 2);
+  ctx.scale(-1, 1);
+  ctx.rotate(rad);
+  ctx.drawImage(video, -dw / 2, -dh / 2, dw, dh);
   ctx.restore();
 
   // 2. white frame + purple inner line
