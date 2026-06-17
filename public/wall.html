@@ -8,36 +8,36 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"/>
 <style>
-  :root{ --purple:#7c3aed; --teal:#2dd4bf; }
+  :root{ --lav:#AFADFF; --indigo:#4D3BD8; --pale:#E7E6FF; --black:#060606; }
   *{ box-sizing:border-box; margin:0; padding:0; font-family:'Manrope',-apple-system,sans-serif; }
-  html,body{ height:100%; background:#06040f; color:#fff; overflow:hidden; }
-  body{ background:radial-gradient(1200px 800px at 50% -10%, rgba(124,58,237,.35), transparent 60%), #06040f; }
-  header{ position:fixed; top:0; left:0; right:0; height:88px; display:flex; align-items:center; justify-content:center; gap:18px; z-index:5;
-    background:linear-gradient(180deg, rgba(6,4,15,.92), transparent); }
-  header img{ height:48px; object-fit:contain; }
-  header .t{ font-weight:800; font-size:24px; letter-spacing:.3px; }
-  header .t small{ display:block; font-weight:500; font-size:14px; color:rgba(255,255,255,.7); }
-  #grid{ position:absolute; inset:96px 24px 24px; column-gap:16px; columns:5; overflow:hidden; }
+  html,body{ height:100%; background:var(--black); color:#fff; overflow:hidden; }
+  body{ background:radial-gradient(1200px 800px at 50% -10%, rgba(175,173,255,.28), transparent 60%), var(--black); }
+  header{ position:fixed; top:0; left:0; right:0; height:86px; display:flex; align-items:center; gap:16px; z-index:5;
+    padding:0 28px; background:linear-gradient(180deg, rgba(6,6,6,.95), transparent); }
+  header img{ height:44px; object-fit:contain; }
+  header .t{ font-weight:800; font-size:22px; letter-spacing:.2px; }
+  header .t small{ display:block; font-weight:500; font-size:13px; color:var(--lav); }
+  #grid{ position:absolute; inset:94px 24px 24px; column-gap:16px; columns:5; overflow:hidden; }
   @media (max-width:1400px){ #grid{ columns:4; } }
   @media (max-width:1000px){ #grid{ columns:3; } }
   @media (max-width:640px){ #grid{ columns:2; } }
-  .card{ break-inside:avoid; margin:0 0 16px; border-radius:14px; overflow:hidden; border:2px solid rgba(255,255,255,.12);
-    box-shadow:0 10px 30px rgba(0,0,0,.5); animation:pop .6s cubic-bezier(.2,1.3,.4,1); background:#120e26; }
+  .card{ break-inside:avoid; margin:0 0 16px; border-radius:14px; overflow:hidden; border:2px solid rgba(175,173,255,.22);
+    box-shadow:0 10px 30px rgba(0,0,0,.6); animation:pop .6s cubic-bezier(.2,1.3,.4,1); background:#0e0d18; }
   .card img{ width:100%; display:block; }
   @keyframes pop{ from{ transform:scale(.6); opacity:0; } to{ transform:scale(1); opacity:1; } }
   #spot{ position:fixed; inset:0; z-index:10; display:none; align-items:center; justify-content:center;
-    background:rgba(6,4,15,.86); backdrop-filter:blur(8px); }
+    background:rgba(6,6,6,.9); backdrop-filter:blur(8px); }
   #spot.on{ display:flex; animation:fade .4s; }
-  #spot img{ max-width:74vw; max-height:78vh; border-radius:18px; border:3px solid rgba(255,255,255,.9);
-    box-shadow:0 30px 80px rgba(0,0,0,.7); }
-  #spot .lbl{ position:absolute; top:10%; left:50%; transform:translateX(-50%); font-weight:800; font-size:30px;
-    background:linear-gradient(135deg,var(--purple),var(--teal)); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  #spot img{ max-width:74vw; max-height:78vh; border-radius:16px; border:3px solid var(--lav);
+    box-shadow:0 30px 80px rgba(0,0,0,.8); }
+  #spot .lbl{ position:absolute; top:9%; left:50%; transform:translateX(-50%); font-weight:800; font-size:30px;
+    background:linear-gradient(135deg,var(--lav),var(--indigo)); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
   @keyframes fade{ from{opacity:0;} to{opacity:1;} }
-  #qr{ position:fixed; bottom:22px; right:22px; z-index:6; background:rgba(18,14,38,.85); border:1px solid rgba(255,255,255,.15);
-    border-radius:16px; padding:14px; text-align:center; backdrop-filter:blur(8px); }
-  #qr img{ width:150px; height:150px; border-radius:8px; background:#fff; display:block; }
-  #qr div{ margin-top:8px; font-weight:700; font-size:13px; }
-  #empty{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; color:rgba(255,255,255,.7);
+  #qr{ position:fixed; bottom:22px; right:22px; z-index:6; background:rgba(14,13,24,.9); border:1px solid rgba(175,173,255,.4);
+    border-radius:16px; padding:14px; text-align:center; }
+  #qr img{ width:148px; height:148px; border-radius:8px; background:#fff; display:block; }
+  #qr div{ margin-top:8px; font-weight:700; font-size:13px; color:var(--lav); }
+  #empty{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; color:rgba(231,230,255,.7);
     font-size:22px; font-weight:600; padding:40px; }
 </style>
 </head>
