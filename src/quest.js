@@ -22,14 +22,14 @@ import banks from './data/banks.json';
 const SKY_GARDEN = { lat: 51.511398, lng: -0.083507 };
 
 /* =====  PHOTO BOOTH — EDIT THESE  ======================================= *
- * Upload your party logo to the repo at:  public/party-logo.png
- * (Vercel serves the public/ folder at the site root, so '/party-logo.png'.)
+ * Upload your party logo to the repo at:  public/party.png
+ * (Vercel serves the public/ folder at the site root, so '/party.png'.)
  * Change the filename below if you name it something else.                  */
 const PHOTO = {
-  logo:     '/party.png',            // <- your party logo
-  title:    'TrueLayer is 10!',           // <- big line of copy
-  subtitle: 'Sky Garden · Summer 2026',   // <- smaller line of copy
-  tag:      '#TrueLayer10'                 // <- corner pill ('' to hide)
+  logo:     '/party.png',                               // <- your party logo
+  title:    'TrueLayer 10 Years Anniversary Party!',    // <- big line of copy
+  subtitle: 'Sky Garden · Summer 2026',                 // <- smaller line of copy
+  tag:      '#TrueLayer10'                               // <- corner pill ('' to hide)
 };
 /* ======================================================================== */
 
@@ -84,13 +84,16 @@ const GAME = {
 /* ===== UI ================================================================ */
 function injectStyles() {
   const css = `
+  :root { --q-font: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  html, body { font-family: var(--q-font); }
+  body * { font-family: var(--q-font) !important; }
   #q-launch, #q-booth {
     background: rgba(18,14,38,0.78); color:#fff; border:1px solid rgba(255,255,255,0.18);
-    border-radius: 999px; padding: 9px 14px; font: 600 14px/1 -apple-system,BlinkMacSystemFont,sans-serif;
+    border-radius: 999px; padding: 9px 14px; font: 600 14px/1 var(--q-font);
     backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); cursor:pointer; white-space:nowrap;
   }
   #q-launch.active { background: linear-gradient(135deg,#7c3aed,#2dd4bf); border-color:transparent; }
-  #q-hud { position:fixed; inset:0; z-index:40; pointer-events:none; display:none; font-family:-apple-system,BlinkMacSystemFont,sans-serif; }
+  #q-hud { position:fixed; inset:0; z-index:40; pointer-events:none; display:none; font-family:var(--q-font); }
   #q-hud.on { display:block; }
   #q-top { position:absolute; top:14px; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:12px;
     background:rgba(10,8,25,0.66); border:1px solid rgba(255,255,255,0.16); border-radius:16px; padding:8px 14px;
@@ -145,7 +148,7 @@ function injectStyles() {
   body.selfie-mode #camera-feed { transform: scaleX(-1); }
   /* ---- PHOTO BOOTH ---- */
   #q-photo { position:fixed; inset:0; z-index:50; display:none; pointer-events:none;
-    font-family:-apple-system,BlinkMacSystemFont,sans-serif; }
+    font-family:var(--q-font); }
   #q-photo.on { display:block; }
   #q-photo .frame { position:absolute; inset:0; border:6px solid rgba(255,255,255,.92); box-sizing:border-box;
     box-shadow: inset 0 0 0 2px rgba(124,58,237,.85); }
@@ -325,6 +328,10 @@ partyImg.onerror = () => { partyReady = false; };
 partyImg.src = PHOTO.logo;
 
 function captureBooth() {
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(doCaptureBooth);
+  else doCaptureBooth();
+}
+function doCaptureBooth() {
   const video = document.getElementById('camera-feed');
   if (!video) return;
   const W = window.innerWidth, H = window.innerHeight;
@@ -357,12 +364,18 @@ function captureBooth() {
   g.addColorStop(0, 'rgba(8,6,20,0)'); g.addColorStop(1, 'rgba(8,6,20,0.82)');
   ctx.fillStyle = g; ctx.fillRect(0, ch - bandH, cw, bandH);
   ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
-  const tSize = Math.round(ch * 0.042);
-  ctx.font = '800 ' + tSize + 'px -apple-system,BlinkMacSystemFont,sans-serif';
-  ctx.fillText(PHOTO.title || '', cw / 2, ch - Math.round(bandH * (PHOTO.subtitle ? 0.5 : 0.32)));
+  let tSize = Math.round(ch * 0.042);
+  ctx.font = '800 ' + tSize + 'px Manrope, sans-serif';
+  const titleTxt = PHOTO.title || '';
+  const maxTW = cw * 0.9;
+  if (titleTxt && ctx.measureText(titleTxt).width > maxTW) {
+    tSize = Math.max(12, Math.floor(tSize * maxTW / ctx.measureText(titleTxt).width));
+    ctx.font = '800 ' + tSize + 'px Manrope, sans-serif';
+  }
+  ctx.fillText(titleTxt, cw / 2, ch - Math.round(bandH * (PHOTO.subtitle ? 0.5 : 0.32)));
   if (PHOTO.subtitle) {
     const sSize = Math.round(ch * 0.028);
-    ctx.font = '500 ' + sSize + 'px -apple-system,BlinkMacSystemFont,sans-serif';
+    ctx.font = '500 ' + sSize + 'px Manrope, sans-serif';
     ctx.fillStyle = 'rgba(255,255,255,0.9)';
     ctx.fillText(PHOTO.subtitle, cw / 2, ch - Math.round(bandH * 0.18));
   }
@@ -379,7 +392,7 @@ function captureBooth() {
   // 5. tag pill (top-right)
   if (PHOTO.tag) {
     const pSize = Math.round(ch * 0.024);
-    ctx.font = '700 ' + pSize + 'px -apple-system,BlinkMacSystemFont,sans-serif';
+    ctx.font = '700 ' + pSize + 'px Manrope, sans-serif';
     const tw = ctx.measureText(PHOTO.tag).width;
     const padX = pSize * 0.9, padY = pSize * 0.6;
     const pw = tw + padX * 2, phh = pSize + padY * 2;
@@ -647,7 +660,18 @@ function endGame(won) {
 }
 
 /* ===== boot ============================================================= */
+function loadFont() {
+  const pre1 = document.createElement('link'); pre1.rel = 'preconnect'; pre1.href = 'https://fonts.googleapis.com';
+  const pre2 = document.createElement('link'); pre2.rel = 'preconnect'; pre2.href = 'https://fonts.gstatic.com'; pre2.crossOrigin = 'anonymous';
+  const link = document.createElement('link'); link.rel = 'stylesheet';
+  link.href = 'https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap';
+  document.head.appendChild(pre1); document.head.appendChild(pre2); document.head.appendChild(link);
+  if (document.fonts && document.fonts.load) {
+    ['400','500','600','700','800'].forEach((w) => { try { document.fonts.load(w + ' 16px Manrope'); } catch (e) {} });
+  }
+}
 function boot() {
+  loadFont();
   injectStyles();
   buildUI();
   addControlButtons();
