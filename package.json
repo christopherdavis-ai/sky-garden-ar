@@ -9,8 +9,7 @@
   },
   "dependencies": {
     "three": "^0.172.0",
-    "@maptiler/sdk": "^4.0.0",
-    "@vercel/blob": "^2.4.0"
+    "@maptiler/sdk": "^4.0.0"
   },
   "devDependencies": {
     "vite": "^6.0.0"
