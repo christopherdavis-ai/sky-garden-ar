@@ -975,8 +975,8 @@ function createARScene() {
 function setupControlBar() {
   const bar = document.getElementById('ar-controls');
   if (!bar) return;
-  const PRIMARY = { 'disco-btn': 'Disco', 'snap-btn': 'Snap', 'q-launch': 'Quest', 'q-booth': 'Photo Booth' };
-  const PRIMARY_ORDER = ['disco-btn', 'snap-btn', 'q-launch', 'q-booth'];
+  const PRIMARY = { 'disco-btn': 'Disco', 'snap-btn': 'Snap', 'q-launch': 'Quest' };
+  const PRIMARY_ORDER = ['disco-btn', 'snap-btn', 'q-launch'];
   const SECONDARY = ['recalibrate-btn', 'light-btn', 'test-btn'];
 
   let moreBtn = document.getElementById('tl-more');
