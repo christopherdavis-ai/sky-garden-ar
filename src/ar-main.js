@@ -256,7 +256,7 @@ function createARFlow(curve, colorA, colorB, scene, glowTex, count) {
     scene.add(pts);
     layers.push(pts);
   });
-  return { curve, layers, count, seeds, speed: 0.03 + Math.random() * 0.025, offset: Math.random(), bearing: 0 };
+  return { curve, layers, count, seeds, baseCol: col, speed: 0.03 + Math.random() * 0.025, offset: Math.random(), bearing: 0 };
 }
 
 const _zee = new THREE.Vector3(0, 0, 1);
@@ -542,7 +542,7 @@ function createARScene() {
   const confettiCtx = confettiCanvas.getContext('2d');
   let confettiParticles = [];
   let confettiRunning = false;
-  const CONFETTI_COLORS = ['#7C3AED', '#2dd4bf', '#ec4899', '#ffffff', '#5bb4ff', '#f59e0b'];
+  const CONFETTI_COLORS = ['#4D3BD8', '#AFADFF', '#ec4899', '#ffffff', '#5bb4ff', '#f59e0b'];
   function sizeConfetti() {
     const dpr = Math.min(window.devicePixelRatio, 2);
     confettiCanvas.width = window.innerWidth * dpr;
@@ -825,6 +825,7 @@ function createARScene() {
 
   const hudHeading = document.getElementById('hud-heading');
   const hudBeams = document.getElementById('hud-beams');
+  const hudBox = document.getElementById('hud');
 
   const rawQuat = new THREE.Quaternion();
   const smoothQuat = new THREE.Quaternion();
@@ -937,10 +938,9 @@ function createARScene() {
     flowEmitters.forEach((f) => {
       const fade = getHemisphereFade(f.bearing, camAz);
       const vis = fade > 0.01;
-      f.layers.forEach((layer) => { layer.visible = vis && (layer.material.opacity > 0.001); });
-      if (!vis) return;
-      f.layers.forEach((layer) => {
+      f.layers.forEach((layer, li) => {
         const arr = layer.geometry.attributes.position.array;
+        const carr = li === 1 ? layer.geometry.attributes.color.array : null;
         for (let i = 0; i < f.count; i++) {
           const u = (i / f.count + t * f.speed * f.seeds[i].speedMult + f.offset) % 1;
           const p = f.curve.getPoint(u);
@@ -948,14 +948,28 @@ function createARScene() {
           arr[i * 3] = p.x + Math.sin(t * s.freqX + s.sx) * s.spread;
           arr[i * 3 + 1] = p.y + Math.sin(t * s.freqY + s.sy) * s.spread * 0.3;
           arr[i * 3 + 2] = p.z + Math.cos(t * s.freqZ + s.sz) * s.spread;
+          if (carr) {
+            const local = (u * 3) % 1;
+            const b = 0.3 + 0.7 * local * local;   // comet: bright leading edge, faint tail (shows flow direction)
+            carr[i * 3] = f.baseCol[i * 3] * b;
+            carr[i * 3 + 1] = f.baseCol[i * 3 + 1] * b;
+            carr[i * 3 + 2] = f.baseCol[i * 3 + 2] * b;
+          }
         }
         layer.geometry.attributes.position.needsUpdate = true;
+        if (carr) layer.geometry.attributes.color.needsUpdate = true;
       });
     });
 
-    hudHeading.textContent = 'Heading: ' + adjustedHeading.toFixed(0) + String.fromCharCode(176) +
+    if (testMode) {
+      hudHeading.textContent = 'Heading: ' + adjustedHeading.toFixed(0) + String.fromCharCode(176) +
       (usingAbsolute ? ' [abs]' : ' [rel]') + (dayMode ? ' \u2600' : ' \u263e');
     hudBeams.textContent = 'Beams visible: ' + visibleCount;
+    } else {
+      hudHeading.textContent = '';
+      hudBeams.textContent = '';
+    }
+    if (hudBox) hudBox.classList.toggle('hidden', !(hudHeading.textContent || hudBeams.textContent || hudMode.textContent));
     renderer.render(scene, camera);
   }
 
@@ -1047,4 +1061,10 @@ init();
     if (document.visibilityState === 'visible') requestWakeLock();
   });
   requestWakeLock();
+})();
+
+/* Desktop / non-mobile fallback: AR needs a phone with motion sensors. */
+(() => {
+  const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints || 0) > 1;
+  if (!isMobile) document.getElementById('ar-fallback')?.classList.remove('hidden');
 })();
