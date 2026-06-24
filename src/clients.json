@@ -1,0 +1,892 @@
+[
+  {
+    "name": "TrueLayer",
+    "lat": 51.519729890236924,
+    "lng": -0.08606619645262696,
+    "beamColor": "#4D3BD8",
+    "initials": "TL",
+    "height": 300,
+    "tier": "host",
+    "logo": "/logos/truelayer.png"
+  },
+  {
+    "name": "Amazon",
+    "lat": 51.52144,
+    "lng": -0.07836,
+    "beamColor": "#FF9900",
+    "initials": "AZ",
+    "height": 300,
+    "tier": "star",
+    "logo": "/logos/amazon_client.png"
+  },
+  {
+    "name": "bet365",
+    "lat": 51.4745,
+    "lng": -0.0712,
+    "beamColor": "#14805E",
+    "initials": "B3",
+    "height": 300,
+    "tier": "star",
+    "logo": "/logos/bet365_client.png"
+  },
+  {
+    "name": "CopyBet",
+    "lat": 51.52019,
+    "lng": -0.15602,
+    "beamColor": "#E11D48",
+    "initials": "CB",
+    "height": 300,
+    "tier": "star",
+    "logo": "/logos/copybet_client.png"
+  },
+  {
+    "name": "eBay UK",
+    "lat": 51.505336,
+    "lng": -0.081269,
+    "beamColor": "#E53238",
+    "initials": "eB",
+    "height": 300,
+    "tier": "star",
+    "logo": "/logos/ebay_client.png"
+  },
+  {
+    "name": "Etsy",
+    "lat": 51.5143,
+    "lng": -0.0817,
+    "beamColor": "#F1641E",
+    "initials": "ET",
+    "height": 300,
+    "tier": "star",
+    "logo": "/logos/etsy_client.png"
+  },
+  {
+    "name": "Just Eat",
+    "lat": 51.51311,
+    "lng": -0.10289,
+    "beamColor": "#FF8000",
+    "initials": "JE",
+    "height": 300,
+    "tier": "star",
+    "logo": "/logos/justeat_client.png"
+  },
+  {
+    "name": "Lastminute.com",
+    "lat": 51.520144,
+    "lng": -0.108755,
+    "beamColor": "#E91E63",
+    "initials": "LM",
+    "height": 300,
+    "tier": "star",
+    "logo": "/logos/lastminute_client.png"
+  },
+  {
+    "name": "Papa Johns UK",
+    "lat": 51.5245,
+    "lng": -0.0785,
+    "beamColor": "#DA291C",
+    "initials": "PJ",
+    "height": 300,
+    "tier": "star",
+    "logo": "/logos/papajohns_client.png"
+  },
+  {
+    "name": "Revolut",
+    "lat": 51.50311,
+    "lng": -0.02188,
+    "beamColor": "#0075EB",
+    "initials": "R",
+    "height": 300,
+    "tier": "star",
+    "logo": "/logos/revolut_client.png"
+  },
+  {
+    "name": "Ryanair UK",
+    "lat": 51.4985,
+    "lng": -0.139,
+    "beamColor": "#073590",
+    "initials": "RY",
+    "height": 300,
+    "tier": "star",
+    "logo": "/logos/ryanair_client.png"
+  },
+  {
+    "name": "Shein",
+    "lat": 51.504691,
+    "lng": -0.013369,
+    "beamColor": "#222222",
+    "initials": "SH",
+    "height": 300,
+    "tier": "star",
+    "logo": "/logos/shein_client.png"
+  },
+  {
+    "name": "Sky Bet",
+    "lat": 51.507853,
+    "lng": -0.103903,
+    "beamColor": "#003DA5",
+    "initials": "SB",
+    "height": 300,
+    "tier": "star",
+    "logo": "/logos/skybet_client.png"
+  },
+  {
+    "name": "Stakemate",
+    "lat": 51.51444,
+    "lng": -0.10373,
+    "beamColor": "#FF6B00",
+    "initials": "SK",
+    "height": 300,
+    "tier": "star",
+    "logo": "/logos/stakemate_client.png"
+  },
+  {
+    "name": "Stripe",
+    "lat": 51.520644,
+    "lng": -0.079241,
+    "beamColor": "#635BFF",
+    "initials": "ST",
+    "height": 300,
+    "tier": "star",
+    "logo": "/logos/stripe_client.png"
+  },
+  {
+    "name": "William Hill",
+    "lat": 51.5189,
+    "lng": -0.12413,
+    "beamColor": "#002D72",
+    "initials": "WH",
+    "height": 300,
+    "tier": "star",
+    "logo": "/logos/willaimhill_client.png"
+  },
+  {
+    "name": "Betsson",
+    "lat": 51.4613,
+    "lng": -0.1156,
+    "beamColor": "#F5A623",
+    "initials": "BT",
+    "height": 150,
+    "tier": "client",
+    "logo": "/logos/betsson.png"
+  },
+  {
+    "name": "Bippit",
+    "lat": 51.521691,
+    "lng": -0.081634,
+    "beamColor": "#34D399",
+    "initials": "BP",
+    "height": 220,
+    "tier": "client",
+    "logo": "/logos/bippit.png"
+  },
+  {
+    "name": "BR-DGE",
+    "lat": 51.481,
+    "lng": -0.029,
+    "beamColor": "#00C2A8",
+    "initials": "BR",
+    "height": 116,
+    "tier": "client",
+    "logo": "/logos/bridge.png"
+  },
+  {
+    "name": "Carmoola",
+    "lat": 51.541664,
+    "lng": -0.153376,
+    "beamColor": "#34D399",
+    "initials": "CM",
+    "height": 206,
+    "tier": "client",
+    "logo": "/logos/carmoola.png"
+  },
+  {
+    "name": "Caxton Payments",
+    "lat": 51.51397,
+    "lng": -0.07204,
+    "beamColor": "#06B6D4",
+    "initials": "CX",
+    "height": 160,
+    "tier": "client",
+    "logo": "/logos/caxton.png"
+  },
+  {
+    "name": "Cazoo",
+    "lat": 51.520593,
+    "lng": -0.122185,
+    "beamColor": "#F97316",
+    "initials": "CZ",
+    "height": 200,
+    "tier": "client",
+    "logo": "/logos/cazoo.png"
+  },
+  {
+    "name": "Chip",
+    "lat": 51.52441,
+    "lng": -0.07561,
+    "beamColor": "#2DD4BF",
+    "initials": "CH",
+    "height": 124,
+    "tier": "client",
+    "logo": "/logos/chip.png"
+  },
+  {
+    "name": "Circa5000",
+    "lat": 51.525617,
+    "lng": -0.083602,
+    "beamColor": "#4ADE80",
+    "initials": "C5",
+    "height": 184,
+    "tier": "client",
+    "logo": "/logos/circa5000.png"
+  },
+  {
+    "name": "Codat",
+    "lat": 51.52049,
+    "lng": -0.09244,
+    "beamColor": "#60A5FA",
+    "initials": "CD",
+    "height": 154,
+    "tier": "client",
+    "logo": "/logos/codat.png"
+  },
+  {
+    "name": "Credit Karma",
+    "lat": 51.51706,
+    "lng": -0.12212,
+    "beamColor": "#2DB84C",
+    "initials": "CK",
+    "height": 224,
+    "tier": "client",
+    "logo": "/logos/creditkarma.png"
+  },
+  {
+    "name": "CreditLadder",
+    "lat": 51.5142,
+    "lng": -0.088,
+    "beamColor": "#5B49E0",
+    "initials": "CL",
+    "height": 136,
+    "tier": "client",
+    "logo": "/logos/creditladder.png"
+  },
+  {
+    "name": "Curve",
+    "lat": 51.51651,
+    "lng": -0.17667,
+    "beamColor": "#38BDF8",
+    "initials": "CU",
+    "height": 118,
+    "tier": "client",
+    "logo": "/logos/curve.png"
+  },
+  {
+    "name": "Easol",
+    "lat": 51.53281,
+    "lng": -0.06872,
+    "beamColor": "#6D28D9",
+    "initials": "EA",
+    "height": 232,
+    "tier": "client",
+    "logo": "/logos/easol.png"
+  },
+  {
+    "name": "Ember",
+    "lat": 51.52259,
+    "lng": -0.08268,
+    "beamColor": "#10B981",
+    "initials": "EM",
+    "height": 130,
+    "tier": "client",
+    "logo": "/logos/ember.png"
+  },
+  {
+    "name": "EverUp",
+    "lat": 51.532,
+    "lng": -0.119,
+    "beamColor": "#8B5CF6",
+    "initials": "EU",
+    "height": 150,
+    "tier": "client",
+    "logo": "/logos/everup.png"
+  },
+  {
+    "name": "Evoke",
+    "lat": 51.517658,
+    "lng": -0.130968,
+    "beamColor": "#E4002B",
+    "initials": "EV",
+    "height": 220,
+    "tier": "client",
+    "logo": "/logos/evoke.png"
+  },
+  {
+    "name": "Finmo",
+    "lat": 51.52083,
+    "lng": -0.10733,
+    "beamColor": "#0EA5E9",
+    "initials": "FM",
+    "height": 116,
+    "tier": "client",
+    "logo": "/logos/finmo.png"
+  },
+  {
+    "name": "Flatfair",
+    "lat": 51.51381,
+    "lng": -0.09267,
+    "beamColor": "#67E8F9",
+    "initials": "FF",
+    "height": 176,
+    "tier": "client",
+    "logo": "/logos/flatfair.png"
+  },
+  {
+    "name": "FlexEarn",
+    "lat": 51.51225,
+    "lng": -0.12282,
+    "beamColor": "#22C55E",
+    "initials": "FE",
+    "height": 236,
+    "tier": "client",
+    "logo": "/logos/flexearn.png"
+  },
+  {
+    "name": "Freetrade",
+    "lat": 51.52188,
+    "lng": -0.07178,
+    "beamColor": "#A3E635",
+    "initials": "FT",
+    "height": 206,
+    "tier": "client",
+    "logo": "/logos/freetrade.png"
+  },
+  {
+    "name": "Funding Circle",
+    "lat": 51.51175,
+    "lng": -0.09765,
+    "beamColor": "#00B0A0",
+    "initials": "FC",
+    "height": 160,
+    "tier": "client",
+    "logo": "/logos/fundingcircle.png"
+  },
+  {
+    "name": "GC Partners",
+    "lat": 51.51026,
+    "lng": -0.13947,
+    "beamColor": "#1E3A8A",
+    "initials": "GC",
+    "height": 124,
+    "tier": "client",
+    "logo": "/logos/gcpartners.png"
+  },
+  {
+    "name": "getincredible.io",
+    "lat": 51.52697,
+    "lng": -0.09254,
+    "beamColor": "#F472B6",
+    "initials": "IN",
+    "height": 184,
+    "tier": "client",
+    "logo": "/logos/incredible.png"
+  },
+  {
+    "name": "GoHenry",
+    "lat": 51.5208,
+    "lng": -0.1042,
+    "beamColor": "#FDBB30",
+    "initials": "GH",
+    "height": 154,
+    "tier": "client",
+    "logo": "/logos/gohenry.png"
+  },
+  {
+    "name": "Hokodo",
+    "lat": 51.525985,
+    "lng": -0.082996,
+    "beamColor": "#00D1FF",
+    "initials": "HK",
+    "height": 136,
+    "tier": "client",
+    "logo": "/logos/hokodo.png"
+  },
+  {
+    "name": "IG Index",
+    "lat": 51.51131,
+    "lng": -0.09305,
+    "beamColor": "#DC2626",
+    "initials": "IG",
+    "height": 196,
+    "tier": "client",
+    "logo": "/logos/ig.png"
+  },
+  {
+    "name": "INCARD",
+    "lat": 51.51225,
+    "lng": -0.12282,
+    "beamColor": "#7C3AED",
+    "initials": "IC",
+    "height": 118,
+    "tier": "client",
+    "logo": "/logos/incard.png"
+  },
+  {
+    "name": "jaja",
+    "lat": 51.5197,
+    "lng": -0.12109,
+    "beamColor": "#E11D48",
+    "initials": "JA",
+    "height": 130,
+    "tier": "client",
+    "logo": "/logos/jaja.png"
+  },
+  {
+    "name": "Kestrl",
+    "lat": 51.51327,
+    "lng": -0.11894,
+    "beamColor": "#16A34A",
+    "initials": "KE",
+    "height": 190,
+    "tier": "client",
+    "logo": "/logos/kestrl.png"
+  },
+  {
+    "name": "Keyzy",
+    "lat": 51.53978,
+    "lng": -0.15247,
+    "beamColor": "#6366F1",
+    "initials": "KY",
+    "height": 150,
+    "tier": "client",
+    "logo": "/logos/keyzy.png"
+  },
+  {
+    "name": "Ladbrokes",
+    "lat": 51.53787,
+    "lng": -0.01352,
+    "beamColor": "#ED1C24",
+    "initials": "LD",
+    "height": 176,
+    "tier": "client",
+    "logo": "/logos/ladbrokes.png"
+  },
+  {
+    "name": "Legl",
+    "lat": 51.51305,
+    "lng": -0.10318,
+    "beamColor": "#6D28D9",
+    "initials": "LG",
+    "height": 236,
+    "tier": "client",
+    "logo": "/logos/legl.png"
+  },
+  {
+    "name": "Lendable",
+    "lat": 51.52247,
+    "lng": -0.08295,
+    "beamColor": "#38BDF8",
+    "initials": "LN",
+    "height": 206,
+    "tier": "client",
+    "logo": "/logos/lendable.png"
+  },
+  {
+    "name": "Lendwise",
+    "lat": 51.51316,
+    "lng": -0.10662,
+    "beamColor": "#0D9488",
+    "initials": "LW",
+    "height": 160,
+    "tier": "client",
+    "logo": "/logos/lendwise.png"
+  },
+  {
+    "name": "Liberis",
+    "lat": 51.51038,
+    "lng": -0.22733,
+    "beamColor": "#A78BFA",
+    "initials": "LB",
+    "height": 124,
+    "tier": "client",
+    "logo": "/logos/liberis.png"
+  },
+  {
+    "name": "Lightyear",
+    "lat": 51.525894,
+    "lng": -0.085162,
+    "beamColor": "#F472B6",
+    "initials": "LY",
+    "height": 184,
+    "tier": "client",
+    "logo": "/logos/lightyear.png"
+  },
+  {
+    "name": "MoneySuperMarket",
+    "lat": 51.51439,
+    "lng": -0.13069,
+    "beamColor": "#5C2D91",
+    "initials": "MS",
+    "height": 224,
+    "tier": "client",
+    "logo": "/logos/moneysupermarket.png"
+  },
+  {
+    "name": "MoneyTO",
+    "lat": 51.50339,
+    "lng": -0.02042,
+    "beamColor": "#2563EB",
+    "initials": "MT",
+    "height": 136,
+    "tier": "client",
+    "logo": "/logos/moneyto.png"
+  },
+  {
+    "name": "Moniepoint",
+    "lat": 51.50708,
+    "lng": -0.10885,
+    "beamColor": "#0357EE",
+    "initials": "MO",
+    "height": 196,
+    "tier": "client",
+    "logo": "/logos/moniepoint.png"
+  },
+  {
+    "name": "Nova Money",
+    "lat": 51.53532,
+    "lng": -0.09913,
+    "beamColor": "#10B981",
+    "initials": "NV",
+    "height": 190,
+    "tier": "client",
+    "logo": "/logos/nova.png"
+  },
+  {
+    "name": "Nuvei",
+    "lat": 51.516348,
+    "lng": -0.122677,
+    "beamColor": "#00C4B3",
+    "initials": "NU",
+    "height": 150,
+    "tier": "client",
+    "logo": "/logos/nuvei.png"
+  },
+  {
+    "name": "OnerWay",
+    "lat": 51.51331,
+    "lng": -0.08119,
+    "beamColor": "#2563EB",
+    "initials": "OW",
+    "height": 160,
+    "tier": "client",
+    "logo": "/logos/onerway.png"
+  },
+  {
+    "name": "Openrent",
+    "lat": 51.51894,
+    "lng": -0.09557,
+    "beamColor": "#F97316",
+    "initials": "OR",
+    "height": 200,
+    "tier": "client",
+    "logo": "/logos/openrent.png"
+  },
+  {
+    "name": "Overwolf",
+    "lat": 51.5045,
+    "lng": -0.086,
+    "beamColor": "#1F2937",
+    "initials": "OV",
+    "height": 184,
+    "tier": "client",
+    "logo": "/logos/overwolf.png"
+  },
+  {
+    "name": "PasstoApp",
+    "lat": 51.51134,
+    "lng": -0.09018,
+    "beamColor": "#0EA5E9",
+    "initials": "PA",
+    "height": 154,
+    "tier": "client",
+    "logo": "/logos/passto.png"
+  },
+  {
+    "name": "Pave Fintech",
+    "lat": 51.521673,
+    "lng": -0.143705,
+    "beamColor": "#2DD4BF",
+    "initials": "PV",
+    "height": 224,
+    "tier": "client",
+    "logo": "/logos/pave.png"
+  },
+  {
+    "name": "Paysafe",
+    "lat": 51.511607,
+    "lng": -0.10637,
+    "beamColor": "#818CF8",
+    "initials": "PS",
+    "height": 196,
+    "tier": "client",
+    "logo": "/logos/paysafe.png"
+  },
+  {
+    "name": "PCI-PAL",
+    "lat": 51.516945,
+    "lng": -0.077927,
+    "beamColor": "#38BDF8",
+    "initials": "PC",
+    "height": 118,
+    "tier": "client",
+    "logo": "/logos/pcipal.png"
+  },
+  {
+    "name": "Penfold",
+    "lat": 51.50157,
+    "lng": -0.09369,
+    "beamColor": "#FF5A5F",
+    "initials": "PF",
+    "height": 170,
+    "tier": "client",
+    "logo": "/logos/penfold.png"
+  },
+  {
+    "name": "peregrine390",
+    "lat": 51.55643,
+    "lng": -0.17813,
+    "beamColor": "#6D28D9",
+    "initials": "PG",
+    "height": 232,
+    "tier": "client",
+    "logo": "/logos/peregrine.png"
+  },
+  {
+    "name": "Plucky",
+    "lat": 51.50762,
+    "lng": -0.07181,
+    "beamColor": "#F59E0B",
+    "initials": "PK",
+    "height": 130,
+    "tier": "client",
+    "logo": "/logos/plucky.png"
+  },
+  {
+    "name": "Plum",
+    "lat": 51.52284,
+    "lng": -0.10697,
+    "beamColor": "#C084FC",
+    "initials": "PL",
+    "height": 190,
+    "tier": "client",
+    "logo": "/logos/plum.png"
+  },
+  {
+    "name": "Raffolux",
+    "lat": 51.52264,
+    "lng": -0.08251,
+    "beamColor": "#EC4899",
+    "initials": "RF",
+    "height": 150,
+    "tier": "client",
+    "logo": "/logos/raffolux.png"
+  },
+  {
+    "name": "RapidPay",
+    "lat": 51.52056,
+    "lng": -0.12017,
+    "beamColor": "#06B6D4",
+    "initials": "RP",
+    "height": 220,
+    "tier": "client",
+    "logo": "/logos/rapidpay.png"
+  },
+  {
+    "name": "Recognise Bank",
+    "lat": 51.52169,
+    "lng": -0.08327,
+    "beamColor": "#1E40AF",
+    "initials": "RB",
+    "height": 116,
+    "tier": "client",
+    "logo": "/logos/recognisebank.png"
+  },
+  {
+    "name": "STERLING FX",
+    "lat": 51.5189,
+    "lng": -0.15779,
+    "beamColor": "#0D9488",
+    "initials": "SF",
+    "height": 236,
+    "tier": "client",
+    "logo": "/logos/sterling.png"
+  },
+  {
+    "name": "SlideBy",
+    "lat": 51.51106,
+    "lng": -0.08716,
+    "beamColor": "#22D3EE",
+    "initials": "SL",
+    "height": 206,
+    "tier": "client",
+    "logo": "/logos/slideby.png"
+  },
+  {
+    "name": "Smarkets",
+    "lat": 51.507,
+    "lng": -0.07232,
+    "beamColor": "#22D3EE",
+    "initials": "SM",
+    "height": 160,
+    "tier": "client",
+    "logo": "/logos/smarkets.png"
+  },
+  {
+    "name": "Smart Currency Exchange",
+    "lat": 51.49221,
+    "lng": -0.22261,
+    "beamColor": "#1E3A8A",
+    "initials": "SC",
+    "height": 200,
+    "tier": "client",
+    "logo": "/logos/smartcurrencyexchange.png"
+  },
+  {
+    "name": "Sprive",
+    "lat": 51.51205,
+    "lng": -0.09058,
+    "beamColor": "#00D1FF",
+    "initials": "SP",
+    "height": 124,
+    "tier": "client",
+    "logo": "/logos/sprive.png"
+  },
+  {
+    "name": "Subtv",
+    "lat": 51.49009,
+    "lng": -0.10927,
+    "beamColor": "#8B5CF6",
+    "initials": "SU",
+    "height": 154,
+    "tier": "client",
+    "logo": "/logos/subtv.png"
+  },
+  {
+    "name": "Superfi",
+    "lat": 51.52697,
+    "lng": -0.09254,
+    "beamColor": "#2563EB",
+    "initials": "SI",
+    "height": 224,
+    "tier": "client",
+    "logo": "/logos/superfi.png"
+  },
+  {
+    "name": "Taxfix",
+    "lat": 51.51225,
+    "lng": -0.12282,
+    "beamColor": "#16A34A",
+    "initials": "TX",
+    "height": 196,
+    "tier": "client",
+    "logo": "/logos/taxfix.png"
+  },
+  {
+    "name": "Temu",
+    "lat": 51.51468,
+    "lng": -0.08788,
+    "beamColor": "#FB7701",
+    "initials": "TM",
+    "height": 118,
+    "tier": "client",
+    "logo": "/logos/temu.png"
+  },
+  {
+    "name": "UNIPaaS",
+    "lat": 51.51928,
+    "lng": -0.14261,
+    "beamColor": "#6D28D9",
+    "initials": "UP",
+    "height": 150,
+    "tier": "client",
+    "logo": "/logos/unipaas.png"
+  },
+  {
+    "name": "Unbolted",
+    "lat": 51.51599,
+    "lng": -0.09026,
+    "beamColor": "#F59E0B",
+    "initials": "UB",
+    "height": 220,
+    "tier": "client",
+    "logo": "/logos/unbolted.png"
+  },
+  {
+    "name": "Wealthyhood",
+    "lat": 51.52836,
+    "lng": -0.07419,
+    "beamColor": "#00B3A4",
+    "initials": "WY",
+    "height": 176,
+    "tier": "client",
+    "logo": "/logos/wealthyhood.png"
+  },
+  {
+    "name": "WhiteHat Gaming",
+    "lat": 51.46945,
+    "lng": -0.209452,
+    "beamColor": "#8B5CF6",
+    "initials": "WG",
+    "height": 236,
+    "tier": "client",
+    "logo": "/logos/whitehat.png"
+  },
+  {
+    "name": "Winamax",
+    "lat": 51.517189,
+    "lng": -0.102852,
+    "beamColor": "#C20017",
+    "initials": "WX",
+    "height": 146,
+    "tier": "client",
+    "logo": "/logos/winamax.png"
+  },
+  {
+    "name": "Wombat",
+    "lat": 51.51197,
+    "lng": -0.09742,
+    "beamColor": "#F59E0B",
+    "initials": "WB",
+    "height": 206,
+    "tier": "client",
+    "logo": "/logos/wombat.png"
+  },
+  {
+    "name": "Worldline",
+    "lat": 51.51895,
+    "lng": -0.118418,
+    "beamColor": "#E42313",
+    "initials": "WL",
+    "height": 200,
+    "tier": "client",
+    "logo": "/logos/worldline.png"
+  },
+  {
+    "name": "Remitly",
+    "lat": 51.522332,
+    "lng": -0.137019,
+    "beamColor": "#00A651",
+    "initials": "RL",
+    "height": 184,
+    "tier": "client",
+    "logo": "/logos/remitly.png"
+  },
+  {
+    "name": "MrQ",
+    "lat": 51.5168,
+    "lng": -0.134,
+    "beamColor": "#FF2D55",
+    "initials": "MQ",
+    "height": 154,
+    "tier": "client",
+    "logo": "/logos/mrq.png"
+  }
+]
