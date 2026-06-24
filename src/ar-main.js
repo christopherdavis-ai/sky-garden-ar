@@ -1032,3 +1032,19 @@ async function init() {
 }
 
 init();
+
+/* Keep the screen awake during the AR experience (event QoL) */
+(() => {
+  let wakeLock = null;
+  const requestWakeLock = async () => {
+    try {
+      if ('wakeLock' in navigator && document.visibilityState === 'visible') {
+        wakeLock = await navigator.wakeLock.request('screen');
+      }
+    } catch (e) { /* wake lock unavailable or denied — safe to ignore */ }
+  };
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') requestWakeLock();
+  });
+  requestWakeLock();
+})();
