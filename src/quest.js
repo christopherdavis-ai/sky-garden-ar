@@ -5,7 +5,7 @@
  *
  *  REAR camera  -> "AR Hunt": shows a random client/bank logo, a Hot/Cold radar
  *                  reticle guides you to its beam, hold centre to LOCK ->
- *                  celebration. Find 5 in 60s.
+ *                  celebration. Find 5 (60s) or Find 10 (2 min).
  *
  * Decoupled: draws its OWN UI + confetti, reads the live calibrated heading
  * from `window.__skyHeading` (set by ar-main.js).
@@ -65,6 +65,13 @@ const GAME = {
   holdMs: 650,        // hold on target this long to LOCK
   hintAfterMs: 12000  // enable hint button after this long on one target
 };
+const LEVELS = [
+  { targets: 5,  seconds: 60,  label: 'Find 5',  sub: '60 seconds' },
+  { targets: 10, seconds: 120, label: 'Find 10', sub: '2 minutes' }
+];
+let currentLevel = 0;
+let lastElapsed = 0;
+let lastWon = false;
 
 /* ===== UI ================================================================ */
 function injectStyles() {
@@ -231,15 +238,40 @@ function nextTarget() {
 }
 
 function toggleGame() {
-  if (state === 'idle' || state === 'over') startGame();
+  if (state === 'idle' || state === 'over') showLevelSelect();
   else stopGame();
 }
-function startGame() {
+function needsCalib() {
   if (typeof window.__skyHeading !== 'number') {
     if (ui.launch) { ui.launch.textContent = 'Calibrate first'; setTimeout(() => { if (ui.launch) ui.launch.textContent = '🎯 Quest'; }, 1500); }
-    return;
+    return true;
   }
+  return false;
+}
+function showLevelSelect() {
+  if (needsCalib()) return;
+  state = 'choosing';
+  cancelAnimationFrame(rafId);
+  ui.hud.classList.remove('on');
+  ui.launch.classList.add('active');
+  ui.launch.textContent = '✕ Close';
+  ui.cardBox.innerHTML =
+    `<h2>🎯 Choose your hunt</h2>
+     <button id="q-lvl0">${LEVELS[0].label} <span style="opacity:.6;font-weight:600;font-size:12px;">${LEVELS[0].sub}</span></button>
+     <button id="q-lvl1">${LEVELS[1].label} <span style="opacity:.6;font-weight:600;font-size:12px;">${LEVELS[1].sub}</span></button>
+     <button id="q-close" class="ghost">Cancel</button>`;
+  ui.card.classList.add('on');
+  document.getElementById('q-lvl0').addEventListener('click', () => startGame(0));
+  document.getElementById('q-lvl1').addEventListener('click', () => startGame(1));
+  document.getElementById('q-close').addEventListener('click', stopGame);
+}
+function startGame(level) {
+  if (typeof level === 'number') currentLevel = level;
+  if (needsCalib()) return;
   if (POOL.length === 0) return;
+  const lv = LEVELS[currentLevel] || LEVELS[0];
+  GAME.targets = lv.targets;
+  GAME.seconds = lv.seconds;
   state = 'playing';
   foundCount = 0;
   bag = shuffledBag();
@@ -423,17 +455,93 @@ function endGame(won) {
   ui.launch.classList.remove('active');
   ui.launch.textContent = '🎯 Quest';
   const elapsed = won ? (GAME.seconds - Math.ceil(pausedRemaining / 1000)) : GAME.seconds;
+  lastElapsed = elapsed; lastWon = won;
+  const rank = rankTitle(elapsed, foundCount);
   ui.cardBox.innerHTML = won
     ? `<h2>🏆 Nailed it!</h2><div class="big">${foundCount}/${GAME.targets}</div>
        <p>All found in ${elapsed}s.</p>
+       <p style="color:#AFADFF;font-weight:800;font-size:20px;margin:2px 0 4px;">${rank}</p>
+       <button id="q-share">📤 Share my score</button>
        <button id="q-again">Play again</button><button id="q-close" class="ghost">Done</button>`
     : `<h2>⏰ Time!</h2><div class="big">${foundCount}/${GAME.targets}</div>
        <p>${foundCount >= 3 ? 'So close — go again!' : 'Warm up and try again!'}</p>
+       ${foundCount > 0 ? '<button id="q-share">📤 Share my score</button>' : ''}
        <button id="q-again">Play again</button><button id="q-close" class="ghost">Done</button>`;
   ui.card.classList.add('on');
   if (won) burstConfetti('#AFADFF');
+  const sBtn = document.getElementById('q-share');
+  if (sBtn) sBtn.addEventListener('click', shareScore);
   document.getElementById('q-again').addEventListener('click', startGame);
   document.getElementById('q-close').addEventListener('click', stopGame);
+}
+
+/* ===== shareable score card ============================================ */
+function rankTitle(elapsed, found) {
+  const pace = elapsed / Math.max(1, found);   // avg seconds per find
+  if (pace < 3)  return '⚡ Payment Wizard';
+  if (pace < 6)  return '🥷 Payment Ninja';
+  if (pace < 10) return '🚀 Fast Mover';
+  return '🎯 Client Hunter';
+}
+function loadImg(src) {
+  return new Promise((resolve, reject) => {
+    const im = new Image();
+    im.onload = () => resolve(im); im.onerror = reject; im.src = src;
+  });
+}
+async function buildScoreCard() {
+  const S = 1080;
+  const c = document.createElement('canvas'); c.width = S; c.height = S;
+  const x = c.getContext('2d');
+  const g = x.createLinearGradient(0, 0, S, S);
+  g.addColorStop(0, '#0b0820'); g.addColorStop(1, '#1b1248');
+  x.fillStyle = g; x.fillRect(0, 0, S, S);
+  const rg = x.createRadialGradient(S/2, S*0.40, 30, S/2, S*0.40, S*0.62);
+  rg.addColorStop(0, 'rgba(77,59,216,0.5)'); rg.addColorStop(1, 'rgba(77,59,216,0)');
+  x.fillStyle = rg; x.fillRect(0, 0, S, S);
+  x.strokeStyle = 'rgba(175,173,255,0.5)'; x.lineWidth = 6; x.strokeRect(28, 28, S-56, S-56);
+  try { await document.fonts.ready; } catch (e) {}
+  x.textAlign = 'center';
+  x.fillStyle = '#AFADFF'; x.font = '700 42px Manrope, sans-serif';
+  x.fillText('TrueLayer \u00b7 10 Years', S/2, 132);
+  x.fillStyle = '#ffffff'; x.font = '800 64px Manrope, sans-serif';
+  x.fillText(`I FOUND ${foundCount} ${foundCount === 1 ? 'CLIENT' : 'CLIENTS'}`, S/2, 300);
+  x.fillStyle = '#AFADFF'; x.font = '800 150px Manrope, sans-serif';
+  x.fillText(`${lastElapsed}s`, S/2, 470);
+  x.fillStyle = '#E7E6FF'; x.font = '700 56px Manrope, sans-serif';
+  x.fillText(rankTitle(lastElapsed, foundCount), S/2, 575);
+  x.fillStyle = '#ffffff'; x.font = '800 72px Manrope, sans-serif';
+  x.fillText('CHALLENGE ME \ud83d\udc40', S/2, 720);
+  x.fillStyle = '#9b99b8'; x.font = '500 32px Manrope, sans-serif';
+  x.fillText('Scan to play the Sky Garden AR Hunt', S/2, 778);
+  try {
+    const qr = await loadImg('/qr.png');
+    const q = 210, qx = S/2 - q/2, qy = 812;
+    x.fillStyle = '#ffffff'; x.fillRect(qx - 14, qy - 14, q + 28, q + 28);
+    x.drawImage(qr, qx, qy, q, q);
+  } catch (e) {
+    x.fillStyle = '#9b99b8'; x.font = '600 30px Manrope, sans-serif';
+    x.fillText('sky-garden-ar.vercel.app/ar.html', S/2, 880);
+  }
+  return c;
+}
+async function shareScore() {
+  let canvas;
+  try { canvas = await buildScoreCard(); } catch (e) { return; }
+  canvas.toBlob(async (blob) => {
+    if (!blob) return;
+    const file = new File([blob], 'truelayer-ar-score.png', { type: 'image/png' });
+    const text = `I found ${foundCount} client${foundCount === 1 ? '' : 's'} in ${lastElapsed}s in TrueLayer's Sky Garden AR \u2014 challenge me! \ud83d\udc40`;
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'TrueLayer Sky Garden AR', text }); return;
+      }
+    } catch (e) {}
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'truelayer-ar-score.png';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  }, 'image/png');
 }
 
 /* ===== boot ============================================================= */
