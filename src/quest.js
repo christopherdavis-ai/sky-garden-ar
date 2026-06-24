@@ -1,16 +1,11 @@
 /* ============================================================================
- * Sky Garden AR — "Find Your Client" Quest  +  Photo Booth  (self-contained)
+ * Sky Garden AR — "Find Your Client" Quest  (self-contained)
  * ----------------------------------------------------------------------------
- * TWO experiences, one file:
+ * The "Find Your Client" AR Hunt:
  *
  *  REAR camera  -> "AR Hunt": shows a random client/bank logo, a Hot/Cold radar
  *                  reticle guides you to its beam, hold centre to LOCK ->
  *                  celebration. Find 5 in 60s.
- *
- *  SELFIE camera -> "Photo Booth": beams are hidden (no logos over faces); a
- *                  branded frame with your PARTY LOGO + copy appears; the
- *                  shutter saves a clean watermarked photo, and "Send to wall"
- *                  uploads it to the live photo wall.
  *
  * Decoupled: draws its OWN UI + confetti, reads the live calibrated heading
  * from `window.__skyHeading` (set by ar-main.js).
@@ -22,17 +17,6 @@ import banks from './data/banks.json';
 /* ---- shared geo constants (must match ar-main.js) ---------------------- */
 const SKY_GARDEN = { lat: 51.511398, lng: -0.083507 };
 
-/* =====  PHOTO BOOTH — EDIT THESE  ======================================= *
- * Upload your party logo to the repo at:  public/party.png
- * (Vercel serves the public/ folder at the site root, so '/party.png'.)
- * Change the filename below if you name it something else.                  */
-const PHOTO = {
-  logo:     '/party.png',                               // <- your party logo
-  title:    '10 Years Anniversary Party!',               // <- big line of copy
-  subtitle: 'Sky Garden · Summer 2026',                 // <- smaller line of copy
-  tag:      ''                                           // <- corner pill ('' to hide)
-};
-/* ======================================================================== */
 
 function getBearing(lat1, lng1, lat2, lng2) {
   const toRad = Math.PI / 180;
@@ -89,7 +73,7 @@ function injectStyles() {
     --tl-lav:#AFADFF; --tl-indigo:#4D3BD8; --tl-pale:#E7E6FF; --tl-black:#060606; }
   html, body { font-family: var(--q-font); }
   body * { font-family: var(--q-font) !important; }
-  #q-launch, #q-booth {
+  #q-launch {
     background: rgba(6,6,6,0.72); color:#fff; border:1px solid rgba(175,173,255,0.45);
     border-radius: 12px; padding: 9px 14px; font: 700 14px/1 var(--q-font);
     backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); cursor:pointer; white-space:nowrap;
@@ -147,54 +131,6 @@ function injectStyles() {
   #q-card button { margin-top:16px; background:#AFADFF; color:#060606; border:none;
     border-radius:12px; padding:13px 26px; font-size:16px; font-weight:800; cursor:pointer; width:100%; }
   #q-card .ghost { background:transparent; border:1.5px solid rgba(175,173,255,.5); color:#fff; margin-top:10px; }
-  body.selfie-mode #camera-feed { transform: scaleX(-1); }
-  /* ---- PHOTO BOOTH ---- */
-  #q-photo { position:fixed; inset:0; z-index:50; display:none; pointer-events:none;
-    font-family:var(--q-font); }
-  #q-photo.on { display:block; }
-  #q-photo .frame { position:absolute; inset:0; border:6px solid rgba(255,255,255,.92); box-sizing:border-box;
-    box-shadow: inset 0 0 0 2px rgba(175,173,255,.9); }
-  #q-photo .toplogo { position:absolute; top:16px; left:18px; max-width:34vw; max-height:11vh;
-    object-fit:contain; filter:drop-shadow(0 2px 10px rgba(0,0,0,.55)); }
-  #q-photo .tag { position:absolute; top:18px; right:18px; background:#4D3BD8; color:#fff; font-weight:800;
-    font-size:13px; padding:7px 13px; border-radius:10px; }
-  #q-photo .band { position:absolute; left:0; right:0; bottom:0; padding:54px 20px 26px; text-align:center; color:#fff;
-    background:linear-gradient(0deg, rgba(6,6,6,.85), transparent); }
-  #q-photo .band h3 { margin:0; font-size:25px; font-weight:800; text-shadow:0 1px 6px rgba(0,0,0,.6); }
-  #q-photo .band p { margin:5px 0 0; font-size:15px; color:rgba(255,255,255,.9); }
-  #q-photo .hint { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); color:rgba(255,255,255,.85);
-    font-weight:700; font-size:15px; text-shadow:0 1px 6px rgba(0,0,0,.7); pointer-events:none; }
-  #q-photo .rot { position:absolute; top:74px; right:16px; z-index:2; pointer-events:auto;
-    width:48px; height:48px; border-radius:50%; font-size:22px; line-height:1;
-    background:rgba(6,6,6,.6); color:#fff; border:1px solid rgba(175,173,255,.55);
-    backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); cursor:pointer; }
-  #q-photo .rot:active { transform:scale(.9); }
-  #q-photo .actions { position:absolute; left:0; right:0; bottom:152px; display:flex; gap:14px; align-items:center;
-    justify-content:center; pointer-events:auto; padding:0 12px; box-sizing:border-box; }
-  #q-photo .cap { width:76px; height:76px; border-radius:50%; background:#fff; border:none; cursor:pointer;
-    box-shadow:0 0 0 4px rgba(255,255,255,.45), 0 6px 20px rgba(0,0,0,.4); }
-  #q-photo .cap:active { transform:scale(.92); }
-  #q-photo .back { background:rgba(6,6,6,.66); color:#fff; border:1.5px solid rgba(175,173,255,.6); border-radius:12px;
-    padding:12px 16px; font-weight:700; font-size:14px; cursor:pointer; backdrop-filter:blur(8px); white-space:nowrap; }
-  #q-photo .wall { background:#AFADFF; color:#060606; border:none; border-radius:12px;
-    padding:12px 16px; font-weight:800; font-size:14px; cursor:pointer; box-shadow:0 6px 20px rgba(77,59,216,.45); white-space:nowrap; }
-  #q-photo .wall:active { transform:scale(.95); }
-  #q-photo .toast { position:absolute; bottom:212px; left:50%; transform:translateX(-50%) translateY(8px); opacity:0;
-    background:rgba(6,6,6,.92); color:#fff; padding:10px 18px; border-radius:10px; font-weight:700; font-size:14px;
-    transition:opacity .25s, transform .25s; pointer-events:none; border:1px solid rgba(175,173,255,.4); white-space:nowrap; }
-  #q-photo .toast.on { opacity:1; transform:translateX(-50%) translateY(0); }
-  @media (orientation: landscape) {
-    #q-photo .toplogo { top:10px; left:12px; max-height:9vh; max-width:24vw; }
-    #q-photo .tag { top:10px; right:12px; font-size:11px; padding:5px 10px; }
-    #q-photo .hint { top:16%; font-size:13px; }
-    #q-photo .band { padding:26px 16px 10px; }
-    #q-photo .band h3 { font-size:17px; }
-    #q-photo .band p { font-size:12px; margin-top:2px; }
-    #q-photo .actions { bottom:12px; gap:12px; }
-    #q-photo .cap { width:52px; height:52px; box-shadow:0 0 0 3px rgba(255,255,255,.4), 0 4px 14px rgba(0,0,0,.4); }
-    #q-photo .back, #q-photo .wall { padding:8px 13px; font-size:13px; }
-    #q-photo .toast { bottom:70px; font-size:12px; padding:7px 13px; }
-  }
   `;
   const s = document.createElement('style');
   s.textContent = css;
@@ -226,24 +162,6 @@ function buildUI() {
   document.body.appendChild(el(`<canvas id="q-fx"></canvas>`));
   document.body.appendChild(el(`<div id="q-card"><div class="box" id="q-card-box"></div></div>`));
 
-  // Photo Booth overlay
-  const photoFrag = el(`<div></div>`);
-  photoFrag.innerHTML = `
-    <div id="q-photo">
-      <div class="frame"></div>
-      <img class="toplogo" id="q-photo-logo" alt=""/>
-      <div class="tag" id="q-photo-tag"></div>
-      <div class="hint" id="q-photo-hint">📸 Strike a pose!</div>
-      <button class="rot" id="q-photo-rot" aria-label="Rotate camera">🔄</button>
-      <div class="band"><h3 id="q-photo-title"></h3><p id="q-photo-sub"></p></div>
-      <div class="actions">
-        <button class="back" id="q-photo-back">← Back to AR</button>
-        <button class="cap" id="q-photo-cap" aria-label="Save photo"></button>
-        <button class="wall" id="q-photo-wall">📤 Send to wall</button>
-      </div>
-      <div class="toast" id="q-toast"></div>
-    </div>`;
-  document.body.appendChild(photoFrag.firstElementChild);
 
   ui = {
     hud: document.getElementById('q-hud'),
@@ -263,24 +181,9 @@ function buildUI() {
     fx: document.getElementById('q-fx'),
     card: document.getElementById('q-card'),
     cardBox: document.getElementById('q-card-box'),
-    photo: document.getElementById('q-photo')
   };
   ui.hintBtn.addEventListener('click', showHint);
 
-  // populate photo booth copy + wire buttons
-  document.getElementById('q-photo-title').textContent = PHOTO.title || '';
-  document.getElementById('q-photo-sub').textContent = PHOTO.subtitle || '';
-  const tagEl = document.getElementById('q-photo-tag');
-  if (PHOTO.tag) tagEl.textContent = PHOTO.tag; else tagEl.style.display = 'none';
-  const logoEl = document.getElementById('q-photo-logo');
-  logoEl.src = PHOTO.logo;
-  logoEl.onerror = () => { logoEl.style.display = 'none'; };
-  document.getElementById('q-photo-back').addEventListener('click', exitBooth);
-  document.getElementById('q-photo-cap').addEventListener('click', captureBooth);
-  document.getElementById('q-photo-wall').addEventListener('click', sendToWall);
-  document.getElementById('q-photo-rot').addEventListener('click', rotateSelfie);
-  window.addEventListener('resize', () => { if (document.body.classList.contains('selfie-mode')) applySelfieTransform(); });
-  window.addEventListener('orientationchange', () => setTimeout(() => { if (document.body.classList.contains('selfie-mode')) applySelfieTransform(); }, 200));
 
   sizeFx();
   window.addEventListener('resize', sizeFx);
@@ -290,251 +193,13 @@ function addControlButtons() {
   const controls = document.getElementById('ar-controls');
   if (!controls) return;
   const launch = el(`<button id="q-launch">🎯 Quest</button>`);
-  const booth = el(`<button id="q-booth">🤳 Photo Booth</button>`);
   launch.addEventListener('click', toggleGame);
-  booth.addEventListener('click', enterBooth);
   controls.appendChild(launch);
-  controls.appendChild(booth);
   ui.launch = launch;
-  ui.booth = booth;
 }
 
-/* ===== camera + Photo Booth ============================================= */
-let facing = 'environment';
-let photoMode = false;
-let selfieRot = (function () { const v = parseInt(localStorage.getItem('tlSelfieRot'), 10); return isNaN(v) ? 0 : v; })();
-let selfieAuto = (localStorage.getItem('tlSelfieRot') == null);
 
-function applySelfieTransform() {
-  const video = document.getElementById('camera-feed');
-  if (!video || !document.body.classList.contains('selfie-mode')) return;
-  const sw = window.innerWidth, sh = window.innerHeight;
-  const r = ((selfieRot % 360) + 360) % 360;
-  const k = (r === 90 || r === 270) ? Math.max(sw / sh, sh / sw) : 1;
-  video.style.transformOrigin = 'center center';
-  video.style.transform = 'scale(' + (-k) + ',' + k + ') rotate(' + r + 'deg)';
-}
-function rotateSelfie() {
-  selfieRot = (selfieRot + 90) % 360;
-  selfieAuto = false;
-  try { localStorage.setItem('tlSelfieRot', String(selfieRot)); } catch (e) {}
-  applySelfieTransform();
-}
 
-async function setFacing(f) {
-  const video = document.getElementById('camera-feed');
-  if (!video) return false;
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: f, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false
-    });
-    const old = video.srcObject;
-    if (old) old.getTracks().forEach((t) => t.stop());
-    video.srcObject = stream;
-    await video.play();
-    facing = f;
-    const selfie = (f === 'user');
-    document.body.classList.toggle('selfie-mode', selfie);
-    if (selfie) {
-      const orient = () => {
-        if (selfieAuto) {
-          const vw = video.videoWidth, vh = video.videoHeight;
-          const portrait = window.innerHeight >= window.innerWidth;
-          if (vw && vh) selfieRot = ((vw > vh) === portrait) ? 90 : 0;
-        }
-        applySelfieTransform();
-      };
-      orient();
-      video.addEventListener('loadedmetadata', orient, { once: true });
-      setTimeout(orient, 250);
-    } else {
-      video.style.transform = '';
-    }
-    return true;
-  } catch (e) {
-    return false;
-  }
-}
-
-function setBeamsVisible(v) {
-  const c = document.getElementById('ar-canvas');
-  if (c) c.style.visibility = v ? '' : 'hidden';
-}
-function setARChrome(show) {
-  setBeamsVisible(show);
-  ['ar-controls', 'hud', 'exit-fs-btn'].forEach((id) => {
-    const e = document.getElementById(id);
-    if (e) e.style.display = show ? '' : 'none';
-  });
-}
-
-async function enterBooth() {
-  if (state === 'playing' || state === 'celebrating') stopGame();
-  photoMode = true;
-  setARChrome(false);          // hide beams + AR controls + HUD
-  ui.photo.classList.add('on');
-  const ok = await setFacing('user');
-  if (!ok) { // selfie camera unavailable -> bail back to AR
-    photoMode = false;
-    ui.photo.classList.remove('on');
-    setARChrome(true);
-  }
-}
-async function exitBooth() {
-  photoMode = false;
-  ui.photo.classList.remove('on');
-  await setFacing('environment');
-  setARChrome(true);
-}
-
-/* preload the party logo for canvas capture */
-let partyImg = new Image();
-let partyReady = false;
-partyImg.onload = () => { partyReady = true; };
-partyImg.onerror = () => { partyReady = false; };
-partyImg.src = PHOTO.logo;
-
-function captureBooth() {
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(saveBoothPhoto);
-  else saveBoothPhoto();
-}
-function sendToWall() {
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(doSendToWall);
-  else doSendToWall();
-}
-
-/* build the branded photo canvas; pass maxDim to cap longest edge (for upload) */
-function buildBoothCanvas(maxDim) {
-  const video = document.getElementById('camera-feed');
-  if (!video) return null;
-  const W = window.innerWidth, H = window.innerHeight;
-  const scale = Math.min(window.devicePixelRatio || 1, 2);
-  let cw = Math.round(W * scale), ch = Math.round(H * scale);
-  if (maxDim) { const f = Math.min(1, maxDim / Math.max(cw, ch)); cw = Math.round(cw * f); ch = Math.round(ch * f); }
-  const out = document.createElement('canvas');
-  out.width = cw; out.height = ch;
-  const ctx = out.getContext('2d');
-
-  // 1. mirrored + orientation-corrected selfie video, cover-fit
-  const vw = video.videoWidth || W, vh = video.videoHeight || H;
-  const r = ((selfieRot % 360) + 360) % 360;
-  const rad = r * Math.PI / 180;
-  const tw = (r === 90 || r === 270) ? ch : cw;
-  const th = (r === 90 || r === 270) ? cw : ch;
-  const cover = Math.max(tw / vw, th / vh);
-  const dw = vw * cover, dh = vh * cover;
-  ctx.save();
-  ctx.translate(cw / 2, ch / 2);
-  ctx.scale(-1, 1);
-  ctx.rotate(rad);
-  ctx.drawImage(video, -dw / 2, -dh / 2, dw, dh);
-  ctx.restore();
-
-  // 2. white frame + purple inner line
-  const bw = Math.max(5, Math.round(cw * 0.012));
-  ctx.strokeStyle = 'rgba(255,255,255,0.92)'; ctx.lineWidth = bw;
-  ctx.strokeRect(bw / 2, bw / 2, cw - bw, ch - bw);
-  ctx.strokeStyle = 'rgba(175,173,255,0.9)'; ctx.lineWidth = Math.max(2, bw * 0.35);
-  const ip = bw * 1.3;
-  ctx.strokeRect(ip, ip, cw - ip * 2, ch - ip * 2);
-
-  // 3. bottom copy band
-  const bandH = Math.round(ch * 0.16);
-  const g = ctx.createLinearGradient(0, ch - bandH, 0, ch);
-  g.addColorStop(0, 'rgba(6,6,6,0)'); g.addColorStop(1, 'rgba(6,6,6,0.85)');
-  ctx.fillStyle = g; ctx.fillRect(0, ch - bandH, cw, bandH);
-  ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
-  let tSize = Math.round(ch * 0.042);
-  ctx.font = '800 ' + tSize + 'px Manrope, sans-serif';
-  const titleTxt = PHOTO.title || '';
-  const maxTW = cw * 0.9;
-  if (titleTxt && ctx.measureText(titleTxt).width > maxTW) {
-    tSize = Math.max(12, Math.floor(tSize * maxTW / ctx.measureText(titleTxt).width));
-    ctx.font = '800 ' + tSize + 'px Manrope, sans-serif';
-  }
-  ctx.fillText(titleTxt, cw / 2, ch - Math.round(bandH * (PHOTO.subtitle ? 0.5 : 0.32)));
-  if (PHOTO.subtitle) {
-    const sSize = Math.round(ch * 0.028);
-    ctx.font = '500 ' + sSize + 'px Manrope, sans-serif';
-    ctx.fillStyle = 'rgba(255,255,255,0.9)';
-    ctx.fillText(PHOTO.subtitle, cw / 2, ch - Math.round(bandH * 0.18));
-  }
-
-  // 4. party logo (top centre)
-  if (partyReady) {
-    const maxW = cw * 0.34, maxH = ch * 0.12;
-    const ar = (partyImg.naturalWidth / partyImg.naturalHeight) || 3;
-    let lw = maxW, lh = lw / ar;
-    if (lh > maxH) { lh = maxH; lw = lh * ar; }
-    ctx.drawImage(partyImg, cw * 0.045, ch * 0.04, lw, lh);
-  }
-
-  // 5. tag pill (top-right)
-  if (PHOTO.tag) {
-    const pSize = Math.round(ch * 0.024);
-    ctx.font = '700 ' + pSize + 'px Manrope, sans-serif';
-    const tw = ctx.measureText(PHOTO.tag).width;
-    const padX = pSize * 0.9, padY = pSize * 0.6;
-    const pw = tw + padX * 2, phh = pSize + padY * 2;
-    const px = cw - pw - cw * 0.03, py = ch * 0.035;
-    ctx.fillStyle = 'rgba(77,59,216,0.95)';
-    ctx.beginPath(); ctx.roundRect(px, py, pw, phh, Math.min(phh / 2, pSize * 0.5)); ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillText(PHOTO.tag, px + padX, py + phh / 2);
-    ctx.textBaseline = 'alphabetic';
-  }
-  return out;
-}
-
-function boothFlash() {
-  ui.flash.style.background = '#fff'; ui.flash.style.opacity = '0.85';
-  setTimeout(() => { ui.flash.style.opacity = '0'; ui.flash.style.background = ''; }, 180);
-}
-let toastTimer = 0;
-function boothToast(msg) {
-  const t = document.getElementById('q-toast');
-  if (!t) return;
-  t.textContent = msg; t.classList.add('on');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('on'), 2600);
-}
-
-/* shutter = save the photo to the guest's own phone */
-function saveBoothPhoto() {
-  const out = buildBoothCanvas(null);
-  if (!out) return;
-  boothFlash();
-  out.toBlob((blob) => {
-    if (!blob) return;
-    const file = new File([blob], 'truelayer-photobooth.jpg', { type: 'image/jpeg' });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      navigator.share({ files: [file], title: 'TrueLayer Sky Garden' }).catch(() => {});
-    } else {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'truelayer-photobooth.jpg';
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-    }
-  }, 'image/jpeg', 0.92);
-}
-
-/* "Send to wall" = explicit consent to upload to the live photo wall */
-function doSendToWall() {
-  const out = buildBoothCanvas(1280);
-  if (!out) return;
-  boothFlash();
-  boothToast('Sending to the wall…');
-  const dataUrl = out.toDataURL('image/jpeg', 0.82);
-  fetch('/api/upload', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ image: dataUrl })
-  })
-    .then((r) => (r.ok ? r.json() : Promise.reject(r)))
-    .then(() => boothToast('✨ On the wall!'))
-    .catch(() => boothToast('Upload failed — try again'));
-}
 
 /* ===== game state machine =============================================== */
 let state = 'idle';          // idle | playing | celebrating | over
@@ -760,7 +425,7 @@ function endGame(won) {
   const elapsed = won ? (GAME.seconds - Math.ceil(pausedRemaining / 1000)) : GAME.seconds;
   ui.cardBox.innerHTML = won
     ? `<h2>🏆 Nailed it!</h2><div class="big">${foundCount}/${GAME.targets}</div>
-       <p>All found in ${elapsed}s.</p><p>Try the 🤳 Photo Booth for the wall!</p>
+       <p>All found in ${elapsed}s.</p>
        <button id="q-again">Play again</button><button id="q-close" class="ghost">Done</button>`
     : `<h2>⏰ Time!</h2><div class="big">${foundCount}/${GAME.targets}</div>
        <p>${foundCount >= 3 ? 'So close — go again!' : 'Warm up and try again!'}</p>
