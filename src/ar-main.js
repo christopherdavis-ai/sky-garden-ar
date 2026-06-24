@@ -860,7 +860,7 @@ function createARScene() {
 
     smoothedHeading = lerpAngle(smoothedHeading, currentHeading, SMOOTH_FACTOR);
     const adjustedHeading = (smoothedHeading + compassOffset + 360) % 360;
-    window.__skyHeading = adjustedHeading;
+    // __skyHeading is now set from camAz below (the screen-orientation-corrected look direction the beams use) so the Quest arrow and the beams share one reference.
 
     const alphaRad = (deviceAlpha * Math.PI / 180) + (compassOffset * Math.PI / 180);
     const betaRad = deviceBeta * Math.PI / 180;
@@ -879,6 +879,7 @@ function createARScene() {
     // not the raw compass heading (which flips when the phone pitches up in portrait).
     _fwd.set(0, 0, -1).applyQuaternion(camera.quaternion);
     const camAz = (Math.atan2(_fwd.x, -_fwd.z) * 180 / Math.PI + 360) % 360;
+    window.__skyHeading = camAz;   // FIX: feed the Quest game the actual camera look direction (matches beam placement), not the raw compass heading.
 
     let visibleCount = 0;
     beamEntries.forEach((b, i) => {
