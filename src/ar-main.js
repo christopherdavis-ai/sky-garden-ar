@@ -14,20 +14,16 @@ const MAX_ZOOM = 4;
 const VIEWER_ALT = SKY_GARDEN.alt;               // ~155 m above street level
 function _clampNum(v, lo, hi, def) { return (typeof v === 'number' && !isNaN(v)) ? Math.min(hi, Math.max(lo, v)) : def; }
 let HORIZON_HUG = _clampNum(parseFloat(localStorage.getItem('tlHug')), 0.05, 1.5, 0.4);    // 1 = true geometry; <1 hugs the horizon
-let BEAM_METERS = _clampNum(parseFloat(localStorage.getItem('tlBeamM')), 30, 600, 130);   // light-column height for a regular client
+let BEAM_SCALE  = _clampNum(parseFloat(localStorage.getItem('tlBeamScale')), 0.3, 3.0, 1.0);// multiplies light-column height (the drama / "wow")
 let NORTH_NUDGE = _clampNum(parseFloat(localStorage.getItem('tlNorthNudge')), -45, 45, 0);// manual compass correction (applied live)
 let SHOW_LANDMARKS = localStorage.getItem('tlShowLandmarks') === '1';
-const TIER_BEAM_MULT = { host: 4.0, star: 1.7, bank: 1.55, client: 1.0 };
-// Each beam's base sits at the office's true ground point (relative to the 155 m
-// deck) and the column rises beamM metres. Elevation is compressed by HORIZON_HUG
-// so beams hug the real skyline instead of floating. Azimuth stays 100% true.
-function groundedBeam(distM, r, beamM) {
+// Each beam's BASE sits at the office's true ground point (relative to the 155 m
+// deck) so it stays planted on the real skyline; base elevation is compressed by
+// HORIZON_HUG. The COLUMN then rises a generous tier height (see arHeight) * BEAM_SCALE
+// so the beams read as tall light shafts again. Azimuth stays 100% true.
+function groundBaseY(distM, r) {
   const d = Math.max(distM, 40);
-  const groundElev = Math.atan2(-VIEWER_ALT, d) * HORIZON_HUG;
-  const topElev    = Math.atan2(beamM - VIEWER_ALT, d) * HORIZON_HUG;
-  const baseY = r * Math.tan(groundElev);
-  const topY  = r * Math.tan(topElev);
-  return { baseY, columnH: Math.max(topY - baseY, 3) };
+  return r * Math.tan(Math.atan2(-VIEWER_ALT, d) * HORIZON_HUG);
 }
 const skyTargets = {};   // name -> { bearing, elev } ; published as window.__skyTargets for the Quest
 
@@ -38,8 +34,8 @@ const FLOW_PARTICLES_BANK = 26;   // <- set to 8 if you want banks lighter like 
 const FLOW_PARTICLES_CLIENT = 14;
 
 // Branded photo frame text (easy to edit / swap for the party later)
-const FRAME_TITLE = 'TrueLayer \u00b7 Sky Garden';
-const FRAME_SUBTITLE = '';   // e.g. 'Summer Party 2026'
+const FRAME_TITLE = 'TrueLayer \u00b7 10 Year Anniversary';
+const FRAME_SUBTITLE = 'Sky Garden \u00b7 2026';
 
 let compassOffset = 0;
 let calibrated = false;
@@ -624,7 +620,7 @@ function createARScene() {
 
   /* -- WATERMARK: corner logo burned into captured photos.
         Swap WATERMARK_SRC to your party logo later (e.g. '/logos/party.png'). -- */
-  const WATERMARK_SRC = (clients.find(c => c.name === 'TrueLayer') || {}).logo || '';
+  const WATERMARK_SRC = '/party.png';   // transparent party logo (looks better than the white-card logo)
   const watermarkImg = new Image();
   let watermarkReady = false;
   if (WATERMARK_SRC) {
@@ -650,49 +646,54 @@ function createARScene() {
     // 2. 3D overlay (beams + logos) — HUD/buttons/confetti are not included
     ctx.drawImage(gl, 0, 0, W, H);
 
-    // 3. branded frame: bottom gradient banner + title + thin border
-    const bandH = Math.round(H * 0.14);
+    // 3. branded frame (adapts to portrait & landscape): sizes key off the SHORT
+    //    side so text/logo look consistent in either orientation. Caption sits
+    //    bottom-LEFT (light Manrope, ~half the old size); party logo bottom-RIGHT,
+    //    so the two never overlap.
+    const m = Math.min(W, H);
+    const pad = Math.round(m * 0.045);
+    const fF = 'Manrope, -apple-system, BlinkMacSystemFont, sans-serif';
+
+    const bandH = Math.round(m * 0.22);
     const g = ctx.createLinearGradient(0, H - bandH, 0, H);
     g.addColorStop(0, 'rgba(10,8,25,0)');
-    g.addColorStop(1, 'rgba(10,8,25,0.72)');
+    g.addColorStop(1, 'rgba(10,8,25,0.74)');
     ctx.fillStyle = g;
     ctx.fillRect(0, H - bandH, W, bandH);
 
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'alphabetic';
-    ctx.fillStyle = '#ffffff';
-    const titleSize = Math.round(H * 0.05);
-    ctx.font = '700 ' + titleSize + 'px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.fillText(FRAME_TITLE, Math.round(W * 0.04), H - Math.round(bandH * (FRAME_SUBTITLE ? 0.45 : 0.32)));
-    if (FRAME_SUBTITLE) {
-      const subSize = Math.round(H * 0.03);
-      ctx.font = '400 ' + subSize + 'px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillStyle = 'rgba(255,255,255,0.82)';
-      ctx.fillText(FRAME_SUBTITLE, Math.round(W * 0.04), H - Math.round(bandH * 0.14));
+    // transparent party logo, bottom-right (no white card; soft shadow so it
+    // still reads against a bright sky)
+    if (watermarkReady) {
+      const aspect = (watermarkImg.naturalWidth / watermarkImg.naturalHeight) || 1;
+      const logoH = Math.round(m * 0.13);
+      const logoW = Math.round(logoH * aspect);
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,0.45)';
+      ctx.shadowBlur = Math.round(m * 0.02);
+      ctx.globalAlpha = 0.96;
+      ctx.drawImage(watermarkImg, W - logoW - pad, H - logoH - pad, logoW, logoH);
+      ctx.restore();
     }
 
-    const bw = Math.max(3, Math.round(W * 0.006));
+    // caption bottom-left, two lines, lighter Manrope at ~half the previous size
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    const s1 = Math.round(m * 0.030);
+    const s2 = Math.round(m * 0.024);
+    ctx.fillStyle = 'rgba(255,255,255,0.96)';
+    ctx.font = '600 ' + s1 + 'px ' + fF;
+    ctx.fillText(FRAME_TITLE, pad, H - pad - s2 - Math.round(m * 0.014));
+    if (FRAME_SUBTITLE) {
+      ctx.fillStyle = 'rgba(255,255,255,0.74)';
+      ctx.font = '300 ' + s2 + 'px ' + fF;
+      ctx.fillText(FRAME_SUBTITLE, pad, H - pad);
+    }
+
+    // thin brand border
+    const bw = Math.max(3, Math.round(m * 0.006));
     ctx.strokeStyle = 'rgba(77,59,216,0.9)';
     ctx.lineWidth = bw;
     ctx.strokeRect(bw / 2, bw / 2, W - bw, H - bw);
-
-    // 4. corner watermark logo on a clean rounded card (bottom-right)
-    if (watermarkReady) {
-      const pad = Math.round(W * 0.03);
-      const cardW = Math.round(W * 0.18);
-      const innerPad = cardW * 0.12;
-      const aspect = (watermarkImg.naturalWidth / watermarkImg.naturalHeight) || 3;
-      const logoW = cardW - innerPad * 2;
-      const logoH = logoW / aspect;
-      const cardH = logoH + innerPad * 2;
-      const x = W - cardW - pad;
-      const y = H - cardH - pad;
-      ctx.fillStyle = 'rgba(255,255,255,0.92)';
-      ctx.beginPath();
-      ctx.roundRect(x, y, cardW, cardH, cardW * 0.1);
-      ctx.fill();
-      ctx.drawImage(watermarkImg, x + innerPad, y + innerPad, logoW, logoH);
-    }
 
     // 5. export + share/download
     out.toBlob((blob) => {
@@ -741,7 +742,7 @@ function createARScene() {
     p.innerHTML =
       '<div style="font-weight:800;font-size:13px;margin-bottom:4px;">\uD83D\uDD27 Tuning</div>' +
       row('Horizon hug', 'tl-hug', 0.05, 1.5, 0.05, HORIZON_HUG) +
-      row('Beam height (m)', 'tl-beam', 30, 600, 10, BEAM_METERS) +
+      row('Beam length', 'tl-beam', 0.3, 3.0, 0.1, BEAM_SCALE) +
       row('North nudge (\u00b0)', 'tl-north', -45, 45, 1, NORTH_NUDGE) +
       '<label style="display:flex;align-items:center;gap:8px;margin:10px 0 4px;"><input id="tl-lm" type="checkbox" ' + (SHOW_LANDMARKS ? 'checked' : '') + '> Show landmark beams</label>' +
       '<div style="opacity:.6;font-size:10px;margin:6px 0;">North &amp; landmarks update live. Hug &amp; height apply on tap.</div>' +
@@ -750,11 +751,11 @@ function createARScene() {
     document.body.appendChild(p);
     const $ = (id) => p.querySelector('#' + id);
     $('tl-hug').addEventListener('input', (e) => { HORIZON_HUG = parseFloat(e.target.value); $('tl-hug-v').textContent = HORIZON_HUG; localStorage.setItem('tlHug', HORIZON_HUG); });
-    $('tl-beam').addEventListener('input', (e) => { BEAM_METERS = parseFloat(e.target.value); $('tl-beam-v').textContent = BEAM_METERS; localStorage.setItem('tlBeamM', BEAM_METERS); });
+    $('tl-beam').addEventListener('input', (e) => { BEAM_SCALE = parseFloat(e.target.value); $('tl-beam-v').textContent = BEAM_SCALE; localStorage.setItem('tlBeamScale', BEAM_SCALE); });
     $('tl-north').addEventListener('input', (e) => { NORTH_NUDGE = parseFloat(e.target.value); $('tl-north-v').textContent = NORTH_NUDGE; localStorage.setItem('tlNorthNudge', NORTH_NUDGE); });
     $('tl-lm').addEventListener('change', (e) => { SHOW_LANDMARKS = e.target.checked; localStorage.setItem('tlShowLandmarks', SHOW_LANDMARKS ? '1' : '0'); });
     $('tl-apply').addEventListener('click', () => location.reload());
-    $('tl-reset').addEventListener('click', () => { ['tlHug', 'tlBeamM', 'tlNorthNudge', 'tlShowLandmarks'].forEach((k) => localStorage.removeItem(k)); location.reload(); });
+    $('tl-reset').addEventListener('click', () => { ['tlHug', 'tlBeamScale', 'tlNorthNudge', 'tlShowLandmarks'].forEach((k) => localStorage.removeItem(k)); location.reload(); });
     _tunePanel = p;
     return p;
   }
@@ -788,9 +789,10 @@ function createARScene() {
   const tlDistM = getDistance(SKY_GARDEN.lat, SKY_GARDEN.lng, tlClient.lat, tlClient.lng);
   const tlDist = scaleDistance(tlDistM);
   const tlBearingRad = tlBearing * Math.PI / 180;
-  const _tlG = groundedBeam(tlDistM, tlDist, BEAM_METERS * TIER_BEAM_MULT.host);
-  const tlWorldPos = new THREE.Vector3(Math.sin(tlBearingRad) * tlDist, _tlG.baseY, -Math.cos(tlBearingRad) * tlDist);
-  const tlTopPos = tlWorldPos.clone().add(new THREE.Vector3(0, _tlG.columnH, 0));
+  const tlBaseY = groundBaseY(tlDistM, tlDist);
+  const tlColumnH = arHeight('host', tlClient.name) * BEAM_SCALE;
+  const tlWorldPos = new THREE.Vector3(Math.sin(tlBearingRad) * tlDist, tlBaseY, -Math.cos(tlBearingRad) * tlDist);
+  const tlTopPos = tlWorldPos.clone().add(new THREE.Vector3(0, tlColumnH, 0));
 
   const linePos = [];   // lattice segments, shared with the particle flows
 
@@ -841,9 +843,8 @@ function createARScene() {
     const sceneDist = scaleDistance(distM);
     const isTL = client.name === 'TrueLayer';
     const isStar = client.tier === 'star';
-    const beamM = BEAM_METERS * (isTL ? TIER_BEAM_MULT.host : isStar ? TIER_BEAM_MULT.star : TIER_BEAM_MULT.client);
-    const { baseY, columnH } = groundedBeam(distM, sceneDist, beamM);
-    const h = columnH;
+    const baseY = groundBaseY(distM, sceneDist);
+    const h = arHeight(isTL ? 'host' : (isStar ? 'star' : client.tier), client.name) * BEAM_SCALE;
 
     const group = buildBeam({
       color: client.beamColor, h, isTL, initials: client.initials,
@@ -870,9 +871,8 @@ function createARScene() {
     if (/starling/i.test(bank.name)) bearing += 16;
     const distM = getDistance(SKY_GARDEN.lat, SKY_GARDEN.lng, bank.lat, bank.lng);
     const sceneDist = scaleDistance(distM);
-    const beamM = BEAM_METERS * TIER_BEAM_MULT.bank;
-    const { baseY, columnH } = groundedBeam(distM, sceneDist, beamM);
-    const h = columnH;
+    const baseY = groundBaseY(distM, sceneDist);
+    const h = arHeight('bank', bank.name) * BEAM_SCALE;
 
     const group = buildBeam({
       color: '#4dabff', h, isTL: false, initials: bank.initials,
@@ -896,9 +896,9 @@ function createARScene() {
     const bearing = getBearing(SKY_GARDEN.lat, SKY_GARDEN.lng, lm.lat, lm.lng);
     const distM = getDistance(SKY_GARDEN.lat, SKY_GARDEN.lng, lm.lat, lm.lng);
     const sceneDist = scaleDistance(distM);
-    const { baseY, columnH } = groundedBeam(distM, sceneDist, BEAM_METERS * 1.2);
+    const baseY = groundBaseY(distM, sceneDist);
     const g = buildBeam({
-      color: '#ffd54a', h: columnH, isTL: false, initials: lm.short || lm.name,
+      color: '#ffd54a', h: 60 * BEAM_SCALE, isTL: false, initials: lm.short || lm.name,
       logo: '', isStar: false, bearing, sceneDist, isBank: false, baseY, isLandmark: true
     });
     g.visible = false;
