@@ -303,6 +303,26 @@ function exitFullscreen() {
   if (screen.orientation?.unlock) screen.orientation.unlock();
 }
 
+/* Pin the UI to the VISIBLE viewport (dvh + safe-area) so that when the browser
+   chrome (address bar) reappears on rotation, the bottom control bar and the
+   corner buttons are never pushed off-screen / chopped. */
+(function injectViewportFix() {
+  const css = document.createElement('style');
+  css.textContent =
+    'html,body{height:100dvh!important;min-height:100dvh!important;overflow:hidden!important;}' +
+    '#ar-canvas,#camera-feed{height:100dvh!important;}' +
+    '#loading-overlay,#calibration-overlay,#ios-permission{height:100dvh!important;}' +
+    '#ar-controls{position:fixed!important;top:auto!important;' +
+      'bottom:max(env(safe-area-inset-bottom,0px),8px)!important;z-index:60!important;}' +
+    '#exit-fs-btn{position:fixed!important;bottom:auto!important;' +
+      'top:max(env(safe-area-inset-top,0px),10px)!important;' +
+      'right:max(env(safe-area-inset-right,0px),12px)!important;z-index:61!important;}' +
+    '#hud{position:fixed!important;bottom:auto!important;' +
+      'top:max(env(safe-area-inset-top,0px),10px)!important;' +
+      'left:max(env(safe-area-inset-left,0px),12px)!important;z-index:61!important;}';
+  (document.head || document.documentElement).appendChild(css);
+})();
+
 async function startCamera() {
   const video = document.getElementById('camera-feed');
   try {
@@ -1080,7 +1100,13 @@ function createARScene() {
     sizeConfetti();
   }
   window.addEventListener('resize', handleResize);
-  window.addEventListener('orientationchange', () => setTimeout(handleResize, 200));
+  window.addEventListener('orientationchange', () => setTimeout(() => {
+    handleResize();
+    if (calibrated) {
+      if (screen.orientation?.lock) screen.orientation.lock('landscape').catch(() => {});
+      if (!document.fullscreenElement) requestFullscreen();   // best-effort; ignored if no gesture
+    }
+  }, 250));
 }
 
 function setupControlBar() {
@@ -1129,6 +1155,7 @@ function setupControlBar() {
 }
 
 async function init() {
+  const t0 = Date.now();   // page-load reference for the minimum splash time
   const cameraOK = await startCamera();
   if (!cameraOK) return;
   const orientationOK = await startOrientation();
@@ -1137,9 +1164,15 @@ async function init() {
       'Motion sensors not available. AR requires a mobile device.';
     return;
   }
-  document.getElementById('loading-overlay').classList.add('hidden');
-  setTimeout(() => { setupCalibration(); }, 500);
-  createARScene();
+  createARScene();   // build the scene behind the splash so it's ready when revealed
+  // Keep the intro / browser-tips splash up for at least a few seconds so it's
+  // readable (on fast devices with permissions already granted it used to flash by).
+  const MIN_INTRO_MS = 3500;
+  const remaining = Math.max(0, MIN_INTRO_MS - (Date.now() - t0));
+  setTimeout(() => {
+    document.getElementById('loading-overlay').classList.add('hidden');
+    setTimeout(() => { setupCalibration(); }, 500);
+  }, remaining);
 }
 
 init();
