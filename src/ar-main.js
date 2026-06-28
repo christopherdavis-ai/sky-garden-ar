@@ -307,19 +307,26 @@ function exitFullscreen() {
    chrome (address bar) reappears on rotation, the bottom control bar and the
    corner buttons are never pushed off-screen / chopped. */
 (function injectViewportFix() {
+  // Chrome reports env(safe-area-inset-*)=0 unless the viewport meta opts in with
+  // viewport-fit=cover; without it the control labels sit under the gesture bar.
+  let mv = document.querySelector('meta[name="viewport"]');
+  if (!mv) { mv = document.createElement('meta'); mv.name = 'viewport'; (document.head || document.documentElement).appendChild(mv); }
+  if (!/viewport-fit/.test(mv.content || '')) {
+    mv.content = (mv.content ? mv.content + ', ' : '') + 'viewport-fit=cover';
+  }
   const css = document.createElement('style');
   css.textContent =
     'html,body{height:100dvh!important;min-height:100dvh!important;overflow:hidden!important;}' +
     '#ar-canvas,#camera-feed{height:100dvh!important;}' +
     '#loading-overlay,#calibration-overlay,#ios-permission{height:100dvh!important;}' +
     '#ar-controls{position:fixed!important;top:auto!important;' +
-      'bottom:max(env(safe-area-inset-bottom,0px),8px)!important;z-index:60!important;}' +
+      'bottom:calc(env(safe-area-inset-bottom,0px) + 20px)!important;z-index:60!important;}' +
     '#exit-fs-btn{position:fixed!important;bottom:auto!important;' +
-      'top:max(env(safe-area-inset-top,0px),10px)!important;' +
-      'right:max(env(safe-area-inset-right,0px),12px)!important;z-index:61!important;}' +
+      'top:calc(env(safe-area-inset-top,0px) + 10px)!important;' +
+      'right:calc(env(safe-area-inset-right,0px) + 12px)!important;z-index:61!important;}' +
     '#hud{position:fixed!important;bottom:auto!important;' +
-      'top:max(env(safe-area-inset-top,0px),10px)!important;' +
-      'left:max(env(safe-area-inset-left,0px),12px)!important;z-index:61!important;}';
+      'top:calc(env(safe-area-inset-top,0px) + 10px)!important;' +
+      'left:calc(env(safe-area-inset-left,0px) + 12px)!important;z-index:61!important;}';
   (document.head || document.documentElement).appendChild(css);
 })();
 
@@ -841,8 +848,9 @@ function createARScene() {
     ring.position.y = 0.2;
 
     const badgeTex = makeBadge(initials, color);
-    const spriteMat = new THREE.SpriteMaterial({ map: badgeTex, transparent: true, depthWrite: false });
+    const spriteMat = new THREE.SpriteMaterial({ map: badgeTex, transparent: true, depthWrite: false, depthTest: false });
     const sprite = new THREE.Sprite(spriteMat);
+    sprite.renderOrder = 10;   // draw logos LAST so beams, flows & particles sit behind them
     const spriteH = isTL ? 9 : (isStar ? 6 : (isBank ? 6 : 4.5));
     sprite.scale.set(spriteH * 1.33, spriteH, 1);
     sprite.position.y = h + 3;
@@ -1100,13 +1108,7 @@ function createARScene() {
     sizeConfetti();
   }
   window.addEventListener('resize', handleResize);
-  window.addEventListener('orientationchange', () => setTimeout(() => {
-    handleResize();
-    if (calibrated) {
-      if (screen.orientation?.lock) screen.orientation.lock('landscape').catch(() => {});
-      if (!document.fullscreenElement) requestFullscreen();   // best-effort; ignored if no gesture
-    }
-  }, 250));
+  window.addEventListener('orientationchange', () => setTimeout(handleResize, 250));
 }
 
 function setupControlBar() {
