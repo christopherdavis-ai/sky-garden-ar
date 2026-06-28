@@ -10,6 +10,27 @@ const BASE_FOV = 60;
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 4;
 
+/* === Geo-anchored, horizon-stuck placement (tunable on-site) ============ */
+const VIEWER_ALT = SKY_GARDEN.alt;               // ~155 m above street level
+function _clampNum(v, lo, hi, def) { return (typeof v === 'number' && !isNaN(v)) ? Math.min(hi, Math.max(lo, v)) : def; }
+let HORIZON_HUG = _clampNum(parseFloat(localStorage.getItem('tlHug')), 0.05, 1.5, 0.4);    // 1 = true geometry; <1 hugs the horizon
+let BEAM_METERS = _clampNum(parseFloat(localStorage.getItem('tlBeamM')), 30, 600, 130);   // light-column height for a regular client
+let NORTH_NUDGE = _clampNum(parseFloat(localStorage.getItem('tlNorthNudge')), -45, 45, 0);// manual compass correction (applied live)
+let SHOW_LANDMARKS = localStorage.getItem('tlShowLandmarks') === '1';
+const TIER_BEAM_MULT = { host: 4.0, star: 1.7, bank: 1.55, client: 1.0 };
+// Each beam's base sits at the office's true ground point (relative to the 155 m
+// deck) and the column rises beamM metres. Elevation is compressed by HORIZON_HUG
+// so beams hug the real skyline instead of floating. Azimuth stays 100% true.
+function groundedBeam(distM, r, beamM) {
+  const d = Math.max(distM, 40);
+  const groundElev = Math.atan2(-VIEWER_ALT, d) * HORIZON_HUG;
+  const topElev    = Math.atan2(beamM - VIEWER_ALT, d) * HORIZON_HUG;
+  const baseY = r * Math.tan(groundElev);
+  const topY  = r * Math.tan(topElev);
+  return { baseY, columnH: Math.max(topY - baseY, 3) };
+}
+const skyTargets = {};   // name -> { bearing, elev } ; published as window.__skyTargets for the Quest
+
 // Particle-flow density by tier (more particles = more apparent payment volume).
 // Star clients and banks read as high-volume; regular clients are lighter.
 const FLOW_PARTICLES_STAR = 26;
@@ -31,10 +52,10 @@ let deviceGamma = 0;
 let usingAbsolute = false;
 
 const LANDMARKS = {
-  'shard':        { name: 'The Shard',    lat: 51.5045, lng: -0.0865 },
-  'tower-bridge': { name: 'Tower Bridge', lat: 51.5055, lng: -0.0754 },
-  'gherkin':      { name: 'The Gherkin',  lat: 51.5145, lng: -0.0803 },
-  'canary-wharf': { name: 'Canary Wharf', lat: 51.5049, lng: -0.0195 }
+  'shard':        { name: 'The Shard',    short: 'SHARD',   lat: 51.5045, lng: -0.0865 },
+  'tower-bridge': { name: 'Tower Bridge', short: 'TWR BR',  lat: 51.5055, lng: -0.0754 },
+  'gherkin':      { name: 'The Gherkin',  short: 'GHERKIN', lat: 51.5145, lng: -0.0803 },
+  'canary-wharf': { name: 'Canary Wharf', short: 'CANARY',  lat: 51.5049, lng: -0.0195 }
 };
 let calSelected = null;
 let calTargetBearing = 0;
@@ -390,6 +411,21 @@ function setupCalibration() {
   }
 
   if (!calBound) {
+    // Auto-compass: a one-tap entry that uses the phone's absolute north (no landmark needed).
+    const autoBtn = document.createElement('button');
+    autoBtn.id = 'cal-auto-btn';
+    autoBtn.textContent = 'Enter AR \u2192';
+    autoBtn.style.cssText = 'display:block;width:100%;margin:0 0 14px;padding:15px;border:none;border-radius:12px;font:800 17px/1 -apple-system,BlinkMacSystemFont,sans-serif;background:linear-gradient(135deg,#AFADFF,#4D3BD8);color:#060606;cursor:pointer;';
+    autoBtn.addEventListener('click', () => {
+      compassOffset = 0;
+      calibrated = true; calSelected = null;
+      overlay.classList.add('hidden');
+      requestFullscreen();
+      document.getElementById('hud')?.classList.remove('hidden');
+      document.getElementById('ar-controls')?.classList.remove('hidden');
+      document.getElementById('exit-fs-btn')?.classList.remove('hidden');
+    });
+    step1.insertBefore(autoBtn, step1.firstChild);
     document.querySelectorAll('.cal-landmark-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
         calSelected = btn.dataset.landmark;
@@ -690,7 +726,38 @@ function createARScene() {
       testBtn.classList.remove('active');
       hudMode.textContent = '';
     }
+    buildTunePanel().style.display = testMode ? 'block' : 'none';
   });
+
+  let _tunePanel = null;
+  function buildTunePanel() {
+    if (_tunePanel) return _tunePanel;
+    const p = document.createElement('div');
+    p.id = 'tl-tune';
+    p.style.cssText = 'position:fixed;top:64px;left:10px;z-index:50;width:212px;padding:12px 13px;border-radius:14px;background:rgba(6,6,6,0.82);border:1px solid rgba(175,173,255,0.4);color:#fff;font:600 12px/1.45 -apple-system,BlinkMacSystemFont,sans-serif;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);display:none;';
+    const row = (label, id, min, max, step, val) =>
+      '<label style="display:block;margin:8px 0 2px;">' + label + ': <b id="' + id + '-v">' + val + '</b></label>' +
+      '<input id="' + id + '" type="range" min="' + min + '" max="' + max + '" step="' + step + '" value="' + val + '" style="width:100%;">';
+    p.innerHTML =
+      '<div style="font-weight:800;font-size:13px;margin-bottom:4px;">\uD83D\uDD27 Tuning</div>' +
+      row('Horizon hug', 'tl-hug', 0.05, 1.5, 0.05, HORIZON_HUG) +
+      row('Beam height (m)', 'tl-beam', 30, 600, 10, BEAM_METERS) +
+      row('North nudge (\u00b0)', 'tl-north', -45, 45, 1, NORTH_NUDGE) +
+      '<label style="display:flex;align-items:center;gap:8px;margin:10px 0 4px;"><input id="tl-lm" type="checkbox" ' + (SHOW_LANDMARKS ? 'checked' : '') + '> Show landmark beams</label>' +
+      '<div style="opacity:.6;font-size:10px;margin:6px 0;">North &amp; landmarks update live. Hug &amp; height apply on tap.</div>' +
+      '<button id="tl-apply" style="width:100%;margin-top:4px;padding:9px;border:none;border-radius:10px;background:#AFADFF;color:#060606;font-weight:800;cursor:pointer;">Apply layout</button>' +
+      '<button id="tl-reset" style="width:100%;margin-top:7px;padding:8px;border:1px solid rgba(175,173,255,.5);border-radius:10px;background:transparent;color:#fff;font-weight:700;cursor:pointer;">Reset defaults</button>';
+    document.body.appendChild(p);
+    const $ = (id) => p.querySelector('#' + id);
+    $('tl-hug').addEventListener('input', (e) => { HORIZON_HUG = parseFloat(e.target.value); $('tl-hug-v').textContent = HORIZON_HUG; localStorage.setItem('tlHug', HORIZON_HUG); });
+    $('tl-beam').addEventListener('input', (e) => { BEAM_METERS = parseFloat(e.target.value); $('tl-beam-v').textContent = BEAM_METERS; localStorage.setItem('tlBeamM', BEAM_METERS); });
+    $('tl-north').addEventListener('input', (e) => { NORTH_NUDGE = parseFloat(e.target.value); $('tl-north-v').textContent = NORTH_NUDGE; localStorage.setItem('tlNorthNudge', NORTH_NUDGE); });
+    $('tl-lm').addEventListener('change', (e) => { SHOW_LANDMARKS = e.target.checked; localStorage.setItem('tlShowLandmarks', SHOW_LANDMARKS ? '1' : '0'); });
+    $('tl-apply').addEventListener('click', () => location.reload());
+    $('tl-reset').addEventListener('click', () => { ['tlHug', 'tlBeamM', 'tlNorthNudge', 'tlShowLandmarks'].forEach((k) => localStorage.removeItem(k)); location.reload(); });
+    _tunePanel = p;
+    return p;
+  }
 
   const discoBtn = document.getElementById('disco-btn');
   discoBtn.addEventListener('click', () => {
@@ -718,13 +785,16 @@ function createARScene() {
 
   const tlClient = clients.find(c => c.name === 'TrueLayer');
   const tlBearing = getBearing(SKY_GARDEN.lat, SKY_GARDEN.lng, tlClient.lat, tlClient.lng);
-  const tlDist = scaleDistance(getDistance(SKY_GARDEN.lat, SKY_GARDEN.lng, tlClient.lat, tlClient.lng));
+  const tlDistM = getDistance(SKY_GARDEN.lat, SKY_GARDEN.lng, tlClient.lat, tlClient.lng);
+  const tlDist = scaleDistance(tlDistM);
   const tlBearingRad = tlBearing * Math.PI / 180;
-  const tlWorldPos = new THREE.Vector3(Math.sin(tlBearingRad) * tlDist, -8, -Math.cos(tlBearingRad) * tlDist);
+  const _tlG = groundedBeam(tlDistM, tlDist, BEAM_METERS * TIER_BEAM_MULT.host);
+  const tlWorldPos = new THREE.Vector3(Math.sin(tlBearingRad) * tlDist, _tlG.baseY, -Math.cos(tlBearingRad) * tlDist);
+  const tlTopPos = tlWorldPos.clone().add(new THREE.Vector3(0, _tlG.columnH, 0));
 
   const linePos = [];   // lattice segments, shared with the particle flows
 
-  function buildBeam({ color, h, isTL, initials, logo, isStar, bearing, sceneDist, isBank }) {
+  function buildBeam({ color, h, isTL, initials, logo, isStar, bearing, sceneDist, isBank, baseY = -8, isLandmark = false }) {
     const group = new THREE.Group();
     const phase = Math.random();
 
@@ -759,28 +829,32 @@ function createARScene() {
 
     group.add(beam, glow, ring, sprite);
     const bearingRad = bearing * Math.PI / 180;
-    group.position.set(Math.sin(bearingRad) * sceneDist, -8, -Math.cos(bearingRad) * sceneDist);
+    group.position.set(Math.sin(bearingRad) * sceneDist, baseY, -Math.cos(bearingRad) * sceneDist);
     scene.add(group);
-    beamEntries.push({ group, beam, bearing, beamMat, glow, ring, sprite, phase, h, isTL, baseColor: new THREE.Color(color) });
+    beamEntries.push({ group, beam, bearing, beamMat, glow, ring, sprite, phase, h, isTL, isLandmark, baseColor: new THREE.Color(color) });
     return group;
   }
 
   clients.forEach((client) => {
     const bearing = getBearing(SKY_GARDEN.lat, SKY_GARDEN.lng, client.lat, client.lng);
-    const sceneDist = scaleDistance(getDistance(SKY_GARDEN.lat, SKY_GARDEN.lng, client.lat, client.lng));
+    const distM = getDistance(SKY_GARDEN.lat, SKY_GARDEN.lng, client.lat, client.lng);
+    const sceneDist = scaleDistance(distM);
     const isTL = client.name === 'TrueLayer';
     const isStar = client.tier === 'star';
-    const h = arHeight(client.tier, client.name);
+    const beamM = BEAM_METERS * (isTL ? TIER_BEAM_MULT.host : isStar ? TIER_BEAM_MULT.star : TIER_BEAM_MULT.client);
+    const { baseY, columnH } = groundedBeam(distM, sceneDist, beamM);
+    const h = columnH;
 
     const group = buildBeam({
       color: client.beamColor, h, isTL, initials: client.initials,
-      logo: client.logo, isStar, bearing, sceneDist, isBank: false
+      logo: client.logo, isStar, bearing, sceneDist, isBank: false, baseY
     });
+    skyTargets[client.name] = { bearing, elev: Math.atan2(baseY + h + 3, sceneDist) * 180 / Math.PI };
 
     if (!isTL) {
       const clientWorldPos = group.position.clone();
       const clientTop = clientWorldPos.clone().add(new THREE.Vector3(0, h, 0));
-      const tlFlowPoint = tlWorldPos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 14, 18 + Math.random() * 45, (Math.random() - 0.5) * 14));
+      const tlFlowPoint = tlTopPos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 14, (Math.random() - 0.5) * 12, (Math.random() - 0.5) * 14));
       const count = isStar ? FLOW_PARTICLES_STAR : FLOW_PARTICLES_CLIENT;
       const curve = buildFlowCurve(clientTop, tlFlowPoint);   // client -> TrueLayer (flows IN)
       const flow = createARFlow(curve, '#a78bfa', '#2dd4bf', scene, glowTex, count);
@@ -794,23 +868,43 @@ function createARScene() {
     let bearing = getBearing(SKY_GARDEN.lat, SKY_GARDEN.lng, bank.lat, bank.lng);
     // Offset Starling so its beam does not sit directly behind TrueLayer.
     if (/starling/i.test(bank.name)) bearing += 16;
-    const sceneDist = scaleDistance(getDistance(SKY_GARDEN.lat, SKY_GARDEN.lng, bank.lat, bank.lng));
-    const h = arHeight('bank', bank.name);
+    const distM = getDistance(SKY_GARDEN.lat, SKY_GARDEN.lng, bank.lat, bank.lng);
+    const sceneDist = scaleDistance(distM);
+    const beamM = BEAM_METERS * TIER_BEAM_MULT.bank;
+    const { baseY, columnH } = groundedBeam(distM, sceneDist, beamM);
+    const h = columnH;
 
     const group = buildBeam({
       color: '#4dabff', h, isTL: false, initials: bank.initials,
-      logo: bank.logo, isStar: false, bearing, sceneDist, isBank: true
+      logo: bank.logo, isStar: false, bearing, sceneDist, isBank: true, baseY
     });
+    skyTargets[bank.name] = { bearing, elev: Math.atan2(baseY + h + 3, sceneDist) * 180 / Math.PI };
 
     const bankWorldPos = group.position.clone();
     const bankTop = bankWorldPos.clone().add(new THREE.Vector3(0, h, 0));
-    const tlFlowPoint = tlWorldPos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 14, 18 + Math.random() * 45, (Math.random() - 0.5) * 14));
+    const tlFlowPoint = tlTopPos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 14, (Math.random() - 0.5) * 12, (Math.random() - 0.5) * 14));
     const curve = buildFlowCurve(tlFlowPoint, bankTop);   // TrueLayer -> bank (flows OUT)
     const flow = createARFlow(curve, '#d6ecff', '#5bb4ff', scene, glowTex, FLOW_PARTICLES_BANK);
     flow.bearing = bearing;
     flowEmitters.push(flow);
     appendCurveLine(curve, linePos);
   });
+
+  /* -- TEST: reference beams on real landmarks to verify alignment on-site -- */
+  Object.keys(LANDMARKS).forEach((key) => {
+    const lm = LANDMARKS[key];
+    const bearing = getBearing(SKY_GARDEN.lat, SKY_GARDEN.lng, lm.lat, lm.lng);
+    const distM = getDistance(SKY_GARDEN.lat, SKY_GARDEN.lng, lm.lat, lm.lng);
+    const sceneDist = scaleDistance(distM);
+    const { baseY, columnH } = groundedBeam(distM, sceneDist, BEAM_METERS * 1.2);
+    const g = buildBeam({
+      color: '#ffd54a', h: columnH, isTL: false, initials: lm.short || lm.name,
+      logo: '', isStar: false, bearing, sceneDist, isBank: false, baseY, isLandmark: true
+    });
+    g.visible = false;
+  });
+
+  window.__skyTargets = skyTargets;
 
   /* -- LATTICE: one glowing line per connection, sharing each flow's curve -- */
   const lineGeo = new THREE.BufferGeometry();
@@ -859,10 +953,10 @@ function createARScene() {
     const t = performance.now() * 0.001;
 
     smoothedHeading = lerpAngle(smoothedHeading, currentHeading, SMOOTH_FACTOR);
-    const adjustedHeading = (smoothedHeading + compassOffset + 360) % 360;
+    const adjustedHeading = (smoothedHeading + compassOffset + NORTH_NUDGE + 360) % 360;
     // __skyHeading is now set from camAz below (the screen-orientation-corrected look direction the beams use) so the Quest arrow and the beams share one reference.
 
-    const alphaRad = (deviceAlpha * Math.PI / 180) + (compassOffset * Math.PI / 180);
+    const alphaRad = (deviceAlpha * Math.PI / 180) + ((compassOffset + NORTH_NUDGE) * Math.PI / 180);
     const betaRad = deviceBeta * Math.PI / 180;
     const gammaRad = deviceGamma * Math.PI / 180;
     const screenOrient = getScreenOrientation();
@@ -880,9 +974,11 @@ function createARScene() {
     _fwd.set(0, 0, -1).applyQuaternion(camera.quaternion);
     const camAz = (Math.atan2(_fwd.x, -_fwd.z) * 180 / Math.PI + 360) % 360;
     window.__skyHeading = camAz;   // FIX: feed the Quest game the actual camera look direction (matches beam placement), not the raw compass heading.
+    window.__skyPitch = Math.asin(Math.max(-1, Math.min(1, _fwd.y))) * 180 / Math.PI;   // up/down look angle, for the Quest vertical cue
 
     let visibleCount = 0;
     beamEntries.forEach((b, i) => {
+      if (b.isLandmark && !SHOW_LANDMARKS) { b.group.visible = false; return; }
       const fade = getHemisphereFade(b.bearing, camAz);
       b.group.visible = fade > 0.01;
       if (!b.group.visible) return;
