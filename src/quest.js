@@ -61,7 +61,8 @@ const POOL = buildPool();
 const GAME = {
   targets: 5,         // find this many
   seconds: 60,        // within this time
-  lockDeg: 6,         // |heading - bearing| under this = on target
+  lockDeg: 6,         // |heading - bearing| under this = on target (azimuth)
+  lockPitch: 9,       // |pitch - target elevation| under this = on target (vertical)
   holdMs: 650,        // hold on target this long to LOCK
   hintAfterMs: 12000  // enable hint button after this long on one target
 };
@@ -110,6 +111,8 @@ function injectStyles() {
   #q-arrow { position:absolute; top:50%; left:50%; width:46px; height:46px; transform-origin:center; transition:opacity .2s;
     margin:-23px 0 0 -23px; }
   #q-arrow svg { width:100%; height:100%; filter:drop-shadow(0 0 6px rgba(0,0,0,.6)); }
+  #q-varrow { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); font-size:30px; font-weight:900; color:#fff;
+    text-shadow:0 0 8px rgba(0,0,0,.85); opacity:0; transition:opacity .2s, top .2s; pointer-events:none; }
   #q-prox { position:absolute; bottom:88px; left:50%; transform:translateX(-50%); width:200px; height:8px;
     background:rgba(255,255,255,.15); border-radius:999px; overflow:hidden; }
   #q-prox > i { display:block; height:100%; width:0%; border-radius:999px; transition:width .12s, background .12s; }
@@ -157,7 +160,8 @@ function buildUI() {
         <div class="pill" id="q-time-pill"><small>Time</small><span id="q-time">${GAME.seconds}</span></div>
       </div>
       <div id="q-reticle"><div id="q-ring"></div><div id="q-cross"></div>
-        <div id="q-arrow"><svg viewBox="0 0 24 24"><path d="M12 2 L19 20 L12 15 L5 20 Z" fill="#fff"/></svg></div></div>
+        <div id="q-arrow"><svg viewBox="0 0 24 24"><path d="M12 2 L19 20 L12 15 L5 20 Z" fill="#fff"/></svg></div>
+        <div id="q-varrow"></div></div>
       <div id="q-msg"></div>
       <div id="q-prox"><i></i></div>
       <button id="q-hint-btn">💡 Hint</button>
@@ -179,6 +183,7 @@ function buildUI() {
     timePill: document.getElementById('q-time-pill'),
     ring: document.getElementById('q-ring'),
     arrow: document.getElementById('q-arrow'),
+    varrow: document.getElementById('q-varrow'),
     prox: document.querySelector('#q-prox > i'),
     msg: document.getElementById('q-msg'),
     hintBtn: document.getElementById('q-hint-btn'),
@@ -235,6 +240,7 @@ function nextTarget() {
     : `<span class="chip-fallback">${target.name[0] || '?'}</span>`;
   ui.hintBtn.classList.remove('on');
   ui.msg.textContent = '';
+  if (ui.varrow) ui.varrow.style.opacity = '0';
 }
 
 function toggleGame() {
@@ -310,23 +316,44 @@ function loop() {
 
     const heading = window.__skyHeading;
     if (typeof heading === 'number' && target) {
-      const d = angularDiff(target.bearing, heading);   // + = to the right
+      // Prefer the beam's ACTUAL azimuth/elevation (published by ar-main) so the hunt
+      // always matches where the beam is really drawn; fall back to the raw lat/lng bearing.
+      const live = (window.__skyTargets && window.__skyTargets[target.name]) || null;
+      const bear = live ? live.bearing : target.bearing;
+      const d = angularDiff(bear, heading);             // + = to the right
       const adist = Math.abs(d);
 
-      ui.arrow.style.transform = `rotate(${d}deg)`;
-      ui.arrow.style.opacity = adist < GAME.lockDeg ? '0' : '1';
+      const pitch = (typeof window.__skyPitch === 'number') ? window.__skyPitch : null;
+      const tElev = live ? live.elev : null;
+      const hasV = (pitch !== null && tElev !== null);
+      const vdiff = hasV ? (tElev - pitch) : 0;          // + = target is above you (look up)
+      const vAligned = !hasV || Math.abs(vdiff) < GAME.lockPitch;
+      const azAligned = adist < GAME.lockDeg;
 
-      const prox = Math.max(0, 1 - adist / 90);
+      ui.arrow.style.transform = `rotate(${d}deg)`;
+      ui.arrow.style.opacity = (azAligned && vAligned) ? '0' : '1';
+
+      // vertical up/down cue — appears once you are roughly on bearing
+      if (hasV && adist < 35 && !vAligned) {
+        ui.varrow.textContent = vdiff > 0 ? '\u25B2' : '\u25BC';
+        ui.varrow.style.top = vdiff > 0 ? '14%' : '86%';
+        ui.varrow.style.opacity = '1';
+      } else {
+        ui.varrow.style.opacity = '0';
+      }
+
+      const prox = Math.max(0, 1 - adist / 90) * (hasV ? Math.max(0, 1 - Math.abs(vdiff) / 60) : 1);
       ui.prox.style.width = (prox * 100).toFixed(0) + '%';
       const hot = hotColor(prox);
       ui.prox.style.background = hot;
-      ui.ring.style.borderColor = adist < GAME.lockDeg ? '#AFADFF' : hot;
+      ui.ring.style.borderColor = (azAligned && vAligned) ? '#AFADFF' : hot;
 
       if (adist > 120) ui.msg.textContent = '↩︎ Turn around';
-      else if (adist > GAME.lockDeg) ui.msg.textContent = (d > 0 ? '➡︎ warmer to the right' : '⬅︎ warmer to the left');
+      else if (!azAligned) ui.msg.textContent = (d > 0 ? '➡︎ warmer to the right' : '⬅︎ warmer to the left');
+      else if (!vAligned) ui.msg.textContent = (vdiff > 0 ? '🔼 look up' : '🔽 look down');
       else ui.msg.textContent = '🔥 HOT — hold it!';
 
-      if (adist < GAME.lockDeg) {
+      if (azAligned && vAligned) {
         ui.ring.classList.add('lock');
         if (!onTargetSince) onTargetSince = now;
         if (now - onTargetSince >= GAME.holdMs) { found(); return; }
